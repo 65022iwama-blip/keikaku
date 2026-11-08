@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>計画</title>
+<meta name="description" content="試験日と範囲から、今日やる量を逆算する勉強手帳">
+<meta name="theme-color" content="#070A12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="計画">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=M+PLUS+1+Code:wght@400;500;700&display=swap">
+<style>
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+<style>
+/* レイアウト: 管制画面。上にカウントダウン表示板、左に月間カレンダー、右に選んだ日のパネル。濃紺の地にグリッド線、ネオンのシアン×マゼンタ。暗い単一テーマ。 */
+:root{
+  --bg:#070A12; --grid:rgba(0,229,255,.055);
+  --card:#0C1220; --card-2:#111A2C; --mute-bg:#0A101C; --field:#060A14;
+  --ink:#E6F0FF; --ink-soft:#8796B4; --rule:#1C2840;
+  --line:rgba(0,229,255,.34); --hover:rgba(0,229,255,.07);
+  --cyan:#00E5FF; --magenta:#FF2BD6; --yellow:#F2F03A; --mint:#00E5FF; --blue:#4D8DFF; --orange:#FF9A2E; --red:#FF3D6E;
+  --sun:#FF5C8A; --sat:#5AA9FF; --on-neon:#03050B;
+  --board:#04070E; --board-rule:#18223A; --board-dim:#5D6D8E; --board-text:#B6C4DE;
+  --led-red:#FF3D6E; --led-amber:#FFC23D; --led-green:#00E5FF;
+  --font-display:"Chakra Petch","M PLUS 1 Code",system-ui,sans-serif;
+  --font-ui:"M PLUS 1 Code","Chakra Petch",system-ui,sans-serif;
+  --font-led:"Chakra Petch","M PLUS 1 Code",monospace;
+  --glow:0 0 0 1px rgba(0,229,255,.18),0 0 26px rgba(0,229,255,.09);
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+body{
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:32px 32px;
+  color:var(--ink);font-family:var(--font-ui);font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--magenta);outline-offset:2px}
+
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 120px}
+
+/* 共通の面 */
+.board,.cal,.panel,.xcard,.sheet{position:relative}
+.cal,.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;box-shadow:var(--glow)}
+
+/* ヘッダー */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.logo{display:flex;align-items:center;gap:12px;min-width:0}
+.logo-mark{width:42px;height:42px;flex:none;display:grid;place-items:center;background:rgba(0,229,255,.08);border:1.5px solid var(--cyan);color:var(--cyan);font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1.45rem;text-shadow:0 0 12px var(--cyan);box-shadow:0 0 16px rgba(0,229,255,.3),inset 0 0 12px rgba(0,229,255,.15);clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
+.logo-text{display:block;font-family:var(--font-display);font-weight:700;font-size:1.5rem;line-height:1;letter-spacing:.12em}
+.logo-sub{display:block;font-family:"Chakra Petch",sans-serif;font-size:.68rem;font-weight:600;color:var(--magenta);letter-spacing:.22em;margin-top:5px;white-space:nowrap;text-shadow:0 0 8px rgba(255,43,214,.5)}
+.top-r{display:flex;align-items:center;gap:10px}
+.chip-btn{appearance:none;border:1px solid var(--line);background:rgba(0,229,255,.05);color:var(--cyan);border-radius:3px;padding:8px 14px;font-weight:700;font-size:.82rem;cursor:pointer;white-space:nowrap;letter-spacing:.04em}
+.icon-btn{appearance:none;width:42px;height:42px;border:1px solid var(--line);background:rgba(0,229,255,.05);color:var(--cyan);border-radius:3px;font-size:1.1rem;cursor:pointer;display:grid;place-items:center}
+.chip-btn:hover,.icon-btn:hover,.nav-btn:hover,.mini:hover{background:var(--hover);border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.25)}
+.chip-btn:active,.icon-btn:active,.nav-btn:active,.btn:active,.fab:active,.mini:active{filter:brightness(1.25)}
+@media (max-width:519px){.logo-sub{display:none}.chip-btn{padding:7px 10px;font-size:.76rem}}
+
+/* グリッド */
+.grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr);grid-template-areas:"board" "panel" "cal" "list"}
+.board{grid-area:board}.cal{grid-area:cal}.panel{grid-area:panel}.list{grid-area:list}
+@media (min-width:900px){
+  .grid{grid-template-columns:minmax(0,1.55fr) minmax(330px,1fr);grid-template-rows:auto auto 1fr;grid-template-areas:"board board" "cal panel" "list panel";align-items:start;column-gap:22px}
+  .panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 14px);max-height:calc(100vh - 28px);overflow:auto}
+}
+
+/* カウントダウン表示板 */
+.board{background:var(--board);border:1px solid var(--line);border-radius:6px;box-shadow:var(--glow);padding:14px 18px 6px;overflow:hidden}
+.board::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,var(--magenta),var(--cyan) 60%,transparent)}
+.board::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px)}
+.board-head{display:none;font-family:"Chakra Petch",sans-serif;font-weight:600;font-size:.72rem;color:var(--board-dim);letter-spacing:.2em;padding-bottom:6px;border-bottom:1px solid var(--board-rule)}
+.brow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"sub left" "dt left";column-gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--board-rule);font-family:var(--font-led)}
+.brow:last-child{border-bottom:0}
+.brow .sub{grid-area:sub;color:var(--ink);font-family:var(--font-ui);font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .dt{grid-area:dt;color:var(--board-text);font-size:.85rem;font-weight:500;letter-spacing:.04em}
+.brow .left{grid-area:left;justify-self:end;color:var(--led);text-shadow:0 0 12px color-mix(in srgb,var(--led) 60%,transparent);font-size:.85rem;font-weight:600;white-space:nowrap;letter-spacing:.06em}
+.brow .num{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1.8rem;margin:0 3px;line-height:1;font-variant-numeric:tabular-nums}
+.brow.main .sub{font-size:1.3rem}
+.brow.main .num{font-size:2.8rem}
+.brow.hot .num{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (min-width:620px){
+  .board-head{display:grid;grid-template-columns:minmax(0,1fr) 8rem 10rem;gap:16px}
+  .board-head span:last-child{text-align:right}
+  .brow{grid-template-columns:minmax(0,1fr) 8rem 10rem;grid-template-areas:"sub dt left";column-gap:16px}
+  .brow .dt{font-size:.95rem}
+  .brow.main .sub{font-size:1.5rem}
+}
+
+/* カレンダー */
+.cal{overflow:hidden}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 12px 12px 16px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(0,229,255,.1),transparent 70%)}
+.cal-nav h2{margin:0;font-family:var(--font-display);font-weight:700;font-size:1.55rem;line-height:1;display:flex;align-items:baseline;gap:8px;letter-spacing:.04em}
+.cal-nav h2 small{font-family:"Chakra Petch",sans-serif;font-weight:600;font-size:.82rem;color:var(--cyan);letter-spacing:.1em}
+.nav-r{display:flex;gap:6px}
+.nav-btn{appearance:none;min-width:38px;height:34px;padding:0 10px;border:1px solid var(--line);background:transparent;color:var(--cyan);border-radius:3px;font-weight:700;cursor:pointer;font-size:.95rem}
+.cal-wd{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--rule)}
+.cal-wd span{text-align:center;font-weight:700;font-size:.74rem;padding:6px 0;color:var(--ink-soft);letter-spacing:.1em}
+.cal-wd .sun{color:var(--sun)}.cal-wd .sat{color:var(--sat)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cell{appearance:none;margin:0;border:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);border-radius:0;background-color:transparent;color:var(--ink);min-height:96px;min-width:0;padding:5px 5px 7px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:3px;text-align:left;cursor:pointer}
+.cal-grid > :nth-child(7n){border-right:0}
+.cal-grid > :nth-last-child(-n+7){border-bottom:0}
+.cell .n{font-family:"Chakra Petch",sans-serif;font-weight:600;font-size:.95rem;line-height:1.25;align-self:flex-start;padding:0 5px;border-radius:2px}
+.cell.sun .n{color:var(--sun)}.cell.sat .n{color:var(--sat)}
+.cell.past{background-image:repeating-linear-gradient(-45deg,transparent 0 6px,rgba(255,255,255,.022) 6px 12px)}
+.cell.past .n{opacity:.4}
+.cell.today .n{background:var(--cyan);color:var(--on-neon);opacity:1;box-shadow:0 0 14px rgba(0,229,255,.6)}
+.cell.sel{box-shadow:inset 0 0 0 1.5px var(--magenta),inset 0 0 22px rgba(255,43,214,.14)}
+button.cell:hover{background-color:var(--hover)}
+.cell.out{cursor:default;background-color:rgba(0,0,0,.28)}
+.chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.66rem;font-weight:700;line-height:1.4;padding:1px 5px;border-radius:2px;background:var(--c);color:var(--on-neon);box-shadow:0 0 10px color-mix(in srgb,var(--c) 40%,transparent)}
+.chip b{font-weight:700;margin-right:3px;padding-right:3px;border-right:1px solid rgba(0,0,0,.35)}
+.chip.pop{animation:pop .5s ease-out 3}
+@keyframes pop{50%{transform:scale(1.12)}}
+@media (max-width:599px){
+  .cell{min-height:62px;padding:3px 2px 5px}
+  .cell .n{font-size:.82rem;padding:0 3px}
+  .chip{font-size:.54rem;padding:0 3px}
+  .cal-nav h2{font-size:1.3rem}
+}
+
+/* 選んだ日のパネル */
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.panel-head.is-today{background:linear-gradient(90deg,rgba(0,229,255,.16),transparent 75%)}
+.pd{font-family:var(--font-display);font-weight:700;font-size:1.4rem;line-height:1.2;letter-spacing:.03em}
+.pw{font-size:.9rem;color:var(--ink-soft)}
+.ph-r{display:flex;align-items:center;gap:8px}
+.badge{border:1px solid var(--cyan);color:var(--cyan);border-radius:2px;font-size:.72rem;font-weight:700;padding:2px 9px;white-space:nowrap;letter-spacing:.06em;box-shadow:0 0 10px rgba(0,229,255,.25)}
+.panel-body{padding:14px 16px 18px;display:flex;flex-direction:column;gap:22px}
+.blk-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.blk-title{font-family:var(--font-display);font-weight:700;font-size:.95rem;margin:0 0 10px;letter-spacing:.04em}
+.blk-title::before{content:"// ";color:var(--magenta)}
+.blk-row .blk-title{margin:0}
+.cnt{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1.05rem;color:var(--cyan)}
+.muted{color:var(--ink-soft);font-size:.86rem;margin:0}
+.tasks{display:flex;flex-direction:column;gap:8px}
+.task,.remind{appearance:none;width:100%;display:flex;align-items:center;gap:11px;text-align:left;background:var(--card-2);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:9px 12px 9px 9px;cursor:pointer;transition:border-color .12s,background-color .12s,opacity .12s}
+.task:hover,.remind:hover{border-color:var(--line);background-color:#132036}
+.task .tab,.remind .tab{width:3px;align-self:stretch;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c);flex:none}
+.task .box{width:22px;height:22px;border:1.5px solid var(--cyan);border-radius:3px;flex:none;display:grid;place-items:center;font-weight:700;font-size:.85rem;color:var(--on-neon)}
+.task .tb{flex:1;min-width:0;display:flex;flex-direction:column}
+.task .nm{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.task .sb,.remind .sb{font-size:.72rem;color:var(--ink-soft)}
+.task .amt{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1.35rem;white-space:nowrap;line-height:1;color:var(--cyan);text-shadow:0 0 10px rgba(0,229,255,.4)}
+.task .amt small{font-family:var(--font-ui);font-size:.66rem;font-weight:500;margin-left:3px;color:var(--ink-soft);text-shadow:none}
+.task .mine{font-size:.6rem;font-weight:700;border:1px solid var(--yellow);color:var(--yellow);border-radius:2px;padding:0 4px;margin-left:6px;vertical-align:2px}
+.task.done{opacity:.5}
+.task.done .box{background:var(--cyan);box-shadow:0 0 10px rgba(0,229,255,.6)}
+.task.done .nm{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--magenta)}
+.remind{padding:8px 12px 8px 9px}
+.remind .nm{flex:1;min-width:0;font-weight:700;display:flex;flex-direction:column;overflow-wrap:anywhere}
+.remind .nm .ttag{align-self:flex-start;margin-bottom:2px}
+.remind .when{font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1rem;white-space:nowrap;color:var(--cyan)}
+.remind.soon .when{color:var(--red);text-shadow:0 0 10px rgba(255,61,110,.5)}
+.pbar{height:6px;border-radius:1px;background:#1A2338;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--c,var(--cyan));box-shadow:0 0 10px var(--c,var(--cyan))}
+.pbar.big{height:8px;margin-top:14px}
+.stamp-wrap{display:flex;justify-content:center;padding:16px 0 2px}
+.stamp{padding:10px 26px;border:1.5px solid var(--magenta);border-radius:3px;color:var(--magenta);text-align:center;font-family:"Chakra Petch",sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:.2em;line-height:1.2;text-shadow:0 0 14px var(--magenta);box-shadow:0 0 22px rgba(255,43,214,.35),inset 0 0 18px rgba(255,43,214,.15);background:rgba(255,43,214,.06)}
+.stamp small{display:block;font-family:var(--font-ui);font-size:.7rem;letter-spacing:.1em;color:var(--ink);text-shadow:none;margin-top:4px}
+.add-mine{appearance:none;width:100%;margin-top:12px;border:1px dashed var(--line);border-radius:4px;background:transparent;color:var(--cyan);padding:10px;font-weight:700;font-size:.84rem;cursor:pointer}
+.add-mine:hover{background:var(--hover)}
+.xstack{display:flex;flex-direction:column;gap:10px}
+.xcard{background:var(--card-2);border:1px solid var(--rule);border-radius:5px;overflow:hidden}
+.xh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-left:3px solid var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 20%,transparent),transparent 80%);border-bottom:1px solid var(--rule)}
+.xh .nm{font-family:var(--font-display);font-weight:700;font-size:1rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{flex:none;border:1px solid var(--line);color:var(--cyan);border-radius:2px;font-family:"Chakra Petch",var(--font-ui);font-size:.74rem;font-weight:700;padding:1px 8px;white-space:nowrap;letter-spacing:.04em}
+.pill.soon{border-color:var(--red);color:var(--red);background:rgba(255,61,110,.1);box-shadow:0 0 12px rgba(255,61,110,.35)}
+.pill.mid{border-color:var(--orange);color:var(--orange)}
+.xb{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:0;padding:10px 12px 4px;font-size:.84rem}
+.xb dt{color:var(--ink-soft)}
+.xb dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
+.xp{padding:8px 12px 12px}
+.nothing{border:1px dashed var(--rule);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.nothing p{margin:0}
+.nothing .next{font-size:.86rem;color:var(--ink-soft)}
+.nothing .next b{color:var(--ink)}
+
+/* 試験一覧 */
+.list-head{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 10px}
+.list-head h2{font-family:var(--font-display);font-weight:700;font-size:1.1rem;margin:0;letter-spacing:.04em}
+.list-head h2::before{content:"// ";color:var(--magenta)}
+.list-head span{font-family:"Chakra Petch",sans-serif;font-weight:600;font-size:.82rem;color:var(--ink-soft)}
+.xgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.xl{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.xl .meta{font-size:.78rem;color:var(--ink-soft)}
+.xl .nums{display:flex;justify-content:space-between;gap:8px;font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.mini{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:3px;padding:4px 10px;font-size:.74rem;font-weight:700;cursor:pointer}
+.mini.danger{color:var(--red);border-color:rgba(255,61,110,.45)}
+.xcard.flash{animation:flash 1s ease-in-out 3}
+@keyframes flash{50%{box-shadow:0 0 0 1.5px var(--cyan),0 0 26px rgba(0,229,255,.55)}}
+.empty{border:1px dashed var(--line);border-radius:6px;padding:24px 16px;text-align:center;color:var(--ink-soft);background:var(--card)}
+
+/* ボタン・トースト */
+.fab{appearance:none;position:fixed;right:0;bottom:0;margin:0 max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 0;background:var(--cyan);color:var(--on-neon);border:0;border-radius:4px;box-shadow:0 0 26px rgba(0,229,255,.5);padding:14px 20px;font-weight:700;font-size:.98rem;letter-spacing:.04em;cursor:pointer;z-index:30}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:70;background:#0C1220;color:var(--cyan);border:1px solid var(--cyan);border-radius:4px;padding:11px 20px;font-weight:700;font-size:.9rem;box-shadow:0 0 24px rgba(0,229,255,.35);max-width:calc(100% - 32px);text-align:center}
+
+/* シート */
+.sheet-bg{position:fixed;inset:0;background:rgba(2,4,10,.74);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.sheet{background:var(--card);color:var(--ink);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;box-shadow:0 0 40px rgba(0,229,255,.12);padding:20px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
+@media (min-width:700px){.sheet-bg{align-items:center}.sheet{border-bottom:1px solid var(--line);border-radius:6px;max-height:86vh;padding-bottom:22px}}
+.sheet h3{font-family:var(--font-display);font-weight:700;font-size:1.25rem;margin:0 0 16px;letter-spacing:.04em}
+.sheet h3::before{content:"> ";color:var(--cyan)}
+.field{margin-bottom:14px}
+.field label,.flabel{display:block;font-size:.76rem;font-weight:700;color:var(--ink-soft);margin-bottom:6px;letter-spacing:.04em}
+.field input,.field select,.imp-area{width:100%;padding:10px 12px;font:inherit;font-size:1rem;border:1px solid var(--rule);border-radius:4px;background:var(--field);color:var(--ink)}
+.field input:focus,.field select:focus,.imp-area:focus,.imp-fields input:focus,.imp-fields select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 16px rgba(0,229,255,.25)}
+.row2{display:flex;gap:10px}.row2 .field{flex:1;min-width:0}
+.hint{font-size:.74rem;color:var(--ink-soft);margin:4px 0 0}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatches button{appearance:none;width:32px;height:32px;border:0;border-radius:3px;cursor:pointer}
+.swatches button.sel{box-shadow:0 0 0 2px var(--card),0 0 0 3.5px var(--ink),0 0 14px rgba(255,255,255,.4)}
+.sheet-actions{display:flex;gap:10px;margin-top:14px}
+.btn{flex:1;appearance:none;border:1px solid var(--line);border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer;background:transparent;color:var(--ink);letter-spacing:.03em}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--cyan);color:var(--on-neon);border-color:var(--cyan);box-shadow:0 0 20px rgba(0,229,255,.35)}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red);box-shadow:0 0 18px rgba(255,61,110,.35)}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.note{font-size:.8rem;background:rgba(0,229,255,.04);border:1px solid var(--rule);border-left:2px solid var(--cyan);border-radius:3px;padding:9px 12px;margin:0;color:var(--ink)}
+.err{color:var(--red);font-weight:700;font-size:.82rem;margin:10px 0 0}
+.bad{border-color:var(--red)!important;background:rgba(255,61,110,.08)!important}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid var(--rule)}
+.toggle-row:first-of-type{border-top:0}
+.t-label{font-weight:700}.t-desc{font-size:.76rem;color:var(--ink-soft)}
+.switch{position:relative;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch .slider{position:absolute;inset:0;background:#141D30;border:1px solid var(--rule);border-radius:3px;cursor:pointer;transition:background .15s,border-color .15s}
+.switch .slider::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:var(--ink-soft);border-radius:2px;transition:transform .15s,background .15s}
+.switch input:checked + .slider{background:rgba(0,229,255,.18);border-color:var(--cyan)}
+.switch input:checked + .slider::before{transform:translateX(21px);background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.switch input:focus-visible + .slider{outline:2px solid var(--magenta);outline-offset:2px}
+
+/* 取り込み */
+.imp-area{min-height:130px;line-height:1.55;resize:vertical;font-size:.92rem}
+.imp-sum{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-weight:700;margin:16px 0 10px}
+.imp-sum .ok{border:1px solid var(--cyan);color:var(--cyan);border-radius:2px;padding:1px 10px;box-shadow:0 0 12px rgba(0,229,255,.25)}
+.imp-row{border:1px solid var(--rule);border-radius:4px;padding:10px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;background:var(--card-2);transition:opacity .12s}
+.imp-row.off{opacity:.5}
+.imp-row > input[type=checkbox]{width:20px;height:20px;margin:8px 0 0;accent-color:var(--cyan);flex:none}
+.imp-fields{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+.imp-fields input,.imp-fields select{width:100%;padding:7px 9px;font:inherit;font-size:.88rem;border:1px solid var(--rule);border-radius:3px;background:var(--field);color:var(--ink);min-width:0}
+.imp-fields .s{grid-column:1 / -1}
+.imp-fields .y{grid-column:1 / -1}
+.imp-fields .q{display:flex;gap:6px;min-width:0}
+.imp-fields .q input{flex:1}
+.imp-fields .q select{width:auto;flex:none}
+.imp-warn{grid-column:1 / -1;font-size:.72rem;font-weight:700;color:var(--red)}
+.imp-info{grid-column:1 / -1;font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+.imp-raw{grid-column:1 / -1;font-size:.7rem;color:var(--ink-soft);overflow-wrap:anywhere}
+details.skipped{margin-top:8px;font-size:.78rem;color:var(--ink-soft)}
+details.skipped summary{cursor:pointer;font-weight:700}
+details.skipped li{overflow-wrap:anywhere}
+
+/* 繰り返し・種類 */
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{appearance:none;flex:1;border:0;background:transparent;color:var(--ink);padding:9px;font-weight:700;cursor:pointer}
+.seg button + button{border-left:1px solid var(--line)}
+.seg button.sel{background:var(--cyan);color:var(--on-neon)}
+.wdpick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.wdpick button{appearance:none;height:40px;border:1px solid var(--rule);border-radius:3px;background:var(--field);color:var(--ink);font-weight:700;cursor:pointer}
+.wdpick button.sun{color:var(--sun)}
+.wdpick button.sat{color:var(--sat)}
+.wdpick button.on{background:var(--cyan);border-color:var(--cyan);color:var(--on-neon);box-shadow:0 0 12px rgba(0,229,255,.45)}
+.rep-tag{display:inline-block;border:1px solid var(--yellow);color:var(--yellow);border-radius:2px;font-weight:700;font-size:.68rem;padding:0 6px;margin-right:4px}
+.ttag{display:inline-block;font-family:var(--font-ui);font-size:.64rem;font-weight:700;line-height:1.5;border:1px solid var(--line);color:var(--cyan);border-radius:2px;padding:0 5px;margin-right:6px;vertical-align:2px}
+.typepick,.tfilter{display:flex;flex-wrap:wrap;gap:6px}
+.typepick button,.tfilter button{appearance:none;border:1px solid var(--rule);border-radius:3px;background:var(--field);color:var(--ink);padding:6px 12px;font-weight:700;font-size:.8rem;cursor:pointer}
+.typepick button:hover,.tfilter button:hover{border-color:var(--line)}
+.typepick button.sel{background:var(--magenta);border-color:var(--magenta);color:#fff;box-shadow:0 0 14px rgba(255,43,214,.45)}
+.tfilter{margin:0 2px 12px}
+.tfilter button.sel{background:var(--cyan);border-color:var(--cyan);color:var(--on-neon);box-shadow:0 0 12px rgba(0,229,255,.4)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">
+      <span class="logo-mark">K</span>
+      <div><span class="logo-text">計画</span><span class="logo-sub">EXAM COUNTDOWN SYSTEM</span></div>
+    </div>
+    <div class="top-r">
+      <button type="button" class="chip-btn" id="importBtn">告知から取り込み</button>
+      <button type="button" class="icon-btn" id="settingsBtn" aria-label="設定">⚙</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="board" id="board" aria-label="次の試験"></section>
+    <section class="cal" id="cal" aria-label="試験カレンダー"></section>
+    <aside class="panel" id="panel" aria-label="選んだ日の内容"></aside>
+    <section class="list">
+      <div class="list-head"><h2>登録中の試験</h2><span id="examCount"></span></div>
+      <div class="tfilter" id="typeFilter" hidden></div>
+      <div id="examList"></div>
+    </section>
+  </main>
+</div>
+
+<button type="button" class="fab" id="addBtn">＋ 試験を追加</button>
+<div class="toast" id="toast" role="status" hidden></div>
+<div id="sheetRoot"></div>
+
+<script>
+/* ---------- 定数・ユーティリティ ---------- */
+const STORE_KEY = "keikaku.v3";
+const WD = "日月火水木金土";
+const OLD_PALETTE = ["#f0564e","#f59038","#e0a800","#14b8a6","#4f8ef7","#7c6cf0","#ec5fa8"];
+const PASTEL_PALETTE = ["#ff8a80","#ffb65c","#ffe14d","#6ee7b7","#7fb2ff","#b79cff","#ff9ecf"];
+const PALETTE = ["#FF3D6E","#FF9A2E","#F2F03A","#3DFFA8","#00E5FF","#B07CFF","#FF2BD6"];
+const UNITS = ["ページ","項目","章","単元","問","枚","回"];
+const TYPES = [
+  { k:"早朝試験", s:"早朝" }, { k:"授業内試験", s:"授業内" }, { k:"チェックテスト", s:"チェック" },
+  { k:"小テスト", s:"小テ" }, { k:"定期テスト", s:"定期" }, { k:"宿題・課題", s:"宿題" },
+];
+const SUBJECTS = ["英語コミュニケーション","論理表現","言語文化","論理国語","文学国語","現代文","古文","漢文","国語",
+  "数学Ⅰ","数学Ⅱ","数学Ⅲ","数学A","数学B","数学C","数学",
+  "英単語","英文法","英語表現","コミュ英","リスニング","英語",
+  "物理基礎","物理","化学基礎","化学","生物基礎","生物","地学基礎","地学","理科",
+  "歴史総合","地理総合","世界史","日本史","地理","公共","現代社会","政治経済","倫理","公民","社会",
+  "情報","保健体育","保健","体育","音楽","美術","書道","家庭"];
+
+const pad = n => String(n).padStart(2,"0");
+const isoOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseISO = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const todayISO = () => isoOf(new Date());
+const diffDays = (a,b) => Math.round((parseISO(a) - parseISO(b)) / 86400000);
+const byDate = (a,b) => a.examDate < b.examDate ? -1 : a.examDate > b.examDate ? 1 : 0;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtMD = iso => { const d = parseISO(iso); return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`; };
+const fmtFull = iso => { const d = parseISO(iso); return `${d.getMonth()+1}月${d.getDate()}日(${WD[d.getDay()]})`; };
+const typeShort = t => (TYPES.find(x => x.k === t) || {}).s || t || "";
+const fullName = e => e.subject && e.type ? `${e.subject}（${e.type}）` : (e.subject || e.type || "");
+const nameHtml = e => e.subject ? `${e.type ? `<span class="ttag">${esc(typeShort(e.type))}</span>` : ""}${esc(e.subject)}` : esc(e.type || "");
+const chipLabel = e => e.subject ? `${e.type ? `<b>${esc(typeShort(e.type))}</b>` : ""}${esc(e.subject)}` : esc(e.type || "");
+const uid = () => Math.random().toString(36).slice(2,9);
+const reduceMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const scrollTo = id => document.getElementById(id).scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+
+/* ---------- データ ---------- */
+function loadState(){ try { const r = localStorage.getItem(STORE_KEY); if (r) return JSON.parse(r); } catch(e){} return null; }
+function saveState(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
+function seed(){
+  const plus = n => { const x = new Date(); x.setDate(x.getDate()+n); return isoOf(x); };
+  return { settings:{ notify:true, capOn:false, cap:30 }, log:{}, manual:[], exams:[
+    { id:uid(), subject:"数学Ⅰ", unit:"ページ", total:40, done:12, examDate:plus(9), reviewDays:2, color:PALETTE[4] },
+    { id:uid(), subject:"英単語", unit:"項目", total:300, done:120, examDate:plus(5), reviewDays:1, color:PALETTE[5] },
+    { id:uid(), subject:"理科", type:"小テスト", unit:"ページ", total:8, done:0, examDate:plus(2), reviewDays:0, color:PALETTE[0] },
+    { id:uid(), subject:"国語", type:"チェックテスト", unit:"ページ", total:null, done:0, examDate:plus(4), reviewDays:0, color:PALETTE[1] },
+  ]};
+}
+let state = loadState() || seed();
+state.settings = state.settings || { notify:true, capOn:false, cap:30 };
+state.log = state.log || {}; state.manual = state.manual || []; state.exams = state.exams || [];
+state.exams.forEach((e,i) => {
+  const c = String(e.color||"").toLowerCase();
+  const k = OLD_PALETTE.indexOf(c) >= 0 ? OLD_PALETTE.indexOf(c) : PASTEL_PALETTE.indexOf(c);
+  if (k >= 0) e.color = PALETTE[k];
+  if (!e.color) e.color = PALETTE[i % PALETTE.length];
+});
+
+let selected = todayISO();
+let typeFilter = "all";
+const passFilter = e => typeFilter === "all" || (e.type || "") === typeFilter;
+let calView = (() => { const d = new Date(); return { y:d.getFullYear(), m:d.getMonth() }; })();
+const justAdded = new Set();
+function focusDate(iso){ selected = iso; const d = parseISO(iso); calView = { y:d.getFullYear(), m:d.getMonth() }; }
+function markAdded(ids){ justAdded.clear(); ids.forEach(i => justAdded.add(i)); setTimeout(() => justAdded.clear(), 3500); }
+
+/* ---------- 計算 ---------- */
+function studyDaysLeft(e){ const dl = parseISO(e.examDate); dl.setDate(dl.getDate() - (e.reviewDays||0)); return Math.max(1, Math.ceil((dl - parseISO(todayISO())) / 86400000)); }
+function daysToExam(e){ return diffDays(e.examDate, todayISO()); }
+function todayAmount(e){ if (!(e.total > 0)) return 0; const r = Math.max(0, e.total - e.done); return r <= 0 ? 0 : Math.ceil(r / studyDaysLeft(e)); }
+function computeToday(){
+  const items = state.exams.filter(e => daysToExam(e) >= 0).map(e => ({ exam:e, raw:todayAmount(e) })).filter(x => x.raw > 0);
+  const sum = items.reduce((s,x) => s + x.raw, 0), cap = state.settings.cap;
+  const capped = state.settings.capOn && cap > 0 && sum > cap;
+  items.forEach(x => x.amount = capped ? Math.max(1, Math.round(x.raw / sum * cap)) : x.raw);
+  return items;
+}
+function todaysLog(){ const t = todayISO(); return state.log[t] || (state.log[t] = {}); }
+function todaysManual(){ const t = todayISO(); return state.manual.filter(m => m.date === t); }
+function upcomingExams(){ return state.exams.filter(e => daysToExam(e) >= 0).sort(byDate); }
+function nextExamAfter(iso){ return state.exams.filter(e => e.examDate > iso).sort(byDate)[0]; }
+
+/* ---------- 描画 ---------- */
+function render(){ renderBoard(); renderExams(); renderCalendar(); renderPanel(); saveState(); }
+
+function ledColor(n){ return n <= 3 ? "var(--led-red)" : n <= 7 ? "var(--led-amber)" : "var(--led-green)"; }
+function renderBoard(){
+  const up = upcomingExams().slice(0,3);
+  const rows = up.length ? up.map((e,i) => {
+    const n = daysToExam(e);
+    const left = n === 0 ? `<span class="num">本日</span>` : `あと<span class="num">${pad(n)}</span>日`;
+    return `<div class="brow ${i===0?"main":""} ${i===0 && n<=3?"hot":""}" style="--led:${ledColor(n)}">
+      <span class="sub">${esc(fullName(e))}</span><span class="dt">${fmtMD(e.examDate)}</span><span class="left">${left}</span></div>`;
+  }).join("") : `<div class="brow main" style="--led:var(--led-amber)"><span class="sub">次の試験はまだありません</span><span class="dt">「＋ 試験を追加」から登録</span><span class="left"></span></div>`;
+  document.getElementById("board").innerHTML = `<div class="board-head"><span>NEXT EXAM</span><span>DATE</span><span>COUNTDOWN</span></div>${rows}`;
+}
+
+function renderCalendar(){
+  const el = document.getElementById("cal");
+  const byDay = {};
+  state.exams.filter(passFilter).forEach(e => (byDay[e.examDate] = byDay[e.examDate] || []).push(e));
+  const { y, m } = calView;
+  const startWd = new Date(y, m, 1).getDay();
+  const dim = new Date(y, m+1, 0).getDate();
+  const t = todayISO();
+  let cells = "";
+  for (let i = 0; i < startWd; i++) cells += `<div class="cell out" aria-hidden="true"></div>`;
+  for (let d = 1; d <= dim; d++){
+    const iso = `${y}-${pad(m+1)}-${pad(d)}`;
+    const wd = (startWd + d - 1) % 7;
+    const exs = (byDay[iso] || []).slice().sort((a,b) => fullName(a).localeCompare(fullName(b), "ja"));
+    const cls = ["cell", wd===0?"sun":"", wd===6?"sat":"", iso===t?"today":"", iso<t?"past":"", iso===selected?"sel":""].join(" ");
+    const chips = exs.map(e => `<span class="chip ${justAdded.has(e.id)?"pop":""}" style="--c:${e.color}">${chipLabel(e)}</span>`).join("");
+    const label = `${m+1}月${d}日` + (exs.length ? `、試験：${exs.map(fullName).join("、")}` : "");
+    cells += `<button type="button" class="${cls}" data-iso="${iso}" aria-label="${esc(label)}" aria-pressed="${iso===selected}"><span class="n">${d}</span>${chips}</button>`;
+  }
+  const trailing = (7 - ((startWd + dim) % 7)) % 7;
+  for (let i = 0; i < trailing; i++) cells += `<div class="cell out" aria-hidden="true"></div>`;
+
+  el.innerHTML = `<div class="cal-nav">
+      <h2><small>${y}年</small>${m+1}月</h2>
+      <div class="nav-r">
+        <button type="button" class="nav-btn" id="cal-prev" aria-label="前の月">‹</button>
+        <button type="button" class="nav-btn" id="cal-today">今日</button>
+        <button type="button" class="nav-btn" id="cal-next" aria-label="次の月">›</button>
+      </div>
+    </div>
+    <div class="cal-wd">${WD.split("").map((w,i) => `<span class="${i===0?"sun":i===6?"sat":""}">${w}</span>`).join("")}</div>
+    <div class="cal-grid">${cells}</div>`;
+
+  el.querySelectorAll("button.cell").forEach(b => b.onclick = () => selectDate(b.dataset.iso));
+  el.querySelector("#cal-prev").onclick = () => { if (--calView.m < 0){ calView.m = 11; calView.y--; } renderCalendar(); };
+  el.querySelector("#cal-next").onclick = () => { if (++calView.m > 11){ calView.m = 0; calView.y++; } renderCalendar(); };
+  el.querySelector("#cal-today").onclick = () => selectDate(todayISO());
+}
+
+function selectDate(iso){
+  focusDate(iso);
+  renderCalendar(); renderPanel();
+  if (window.matchMedia("(max-width: 899px)").matches) scrollTo("panel");
+}
+
+function xcardDetail(e){
+  const remain = Math.max(0, e.total - e.done), pct = e.total ? Math.round(e.done / e.total * 100) : 0, n = daysToExam(e);
+  const pill = n < 0 ? "終了" : n === 0 ? "本日" : `あと${n}日`, cls = n < 0 ? "" : n <= 3 ? "soon" : n <= 7 ? "mid" : "";
+  return `<div class="xcard" style="--c:${e.color}">
+    <div class="xh"><span class="nm">${nameHtml(e)}</span><span class="pill ${cls}">${pill}</span></div>
+    ${e.total > 0 ? `<dl class="xb">
+      <dt>範囲</dt><dd>${e.total} ${esc(e.unit)}</dd>
+      <dt>進み</dt><dd>${e.done} / ${e.total}（${pct}%）</dd>
+      <dt>残り</dt><dd>${remain ? `${remain} ${esc(e.unit)}` : "完了"}</dd>
+      <dt>1日あたり</dt><dd>${remain && n >= 0 ? `約 ${todayAmount(e)} ${esc(e.unit)}` : "―"}</dd>
+      ${e.reviewDays ? `<dt>見直し</dt><dd>試験前 ${e.reviewDays}日</dd>` : ""}
+    </dl>
+    <div class="xp"><div class="pbar"><i style="width:${pct}%"></i></div>
+      <div class="acts" style="margin-top:10px"><button type="button" class="mini" data-edit="${e.id}">編集</button></div></div>`
+    : `<dl class="xb"><dt>種類</dt><dd>リマインドのみ（量なし）</dd></dl>
+    <div class="xp"><div class="acts"><button type="button" class="mini" data-edit="${e.id}">量を設定・編集</button></div></div>`}
+  </div>`;
+}
+
+function todayBlock(){
+  const auto = computeToday(), manual = todaysManual(), log = todaysLog();
+  const total = auto.length + manual.length;
+  const done = auto.filter(x => (log[x.exam.id]||0) >= x.amount).length + manual.filter(m => m.done).length;
+  let h = `<div><div class="blk-row"><h3 class="blk-title">今日やること</h3>${total ? `<span class="cnt">${done} / ${total}</span>` : ""}</div>`;
+  if (!state.exams.length && !manual.length){
+    h += `<p class="muted">試験や宿題を登録すると、ここに出ます。量を入れたものは、今日やる量に自動で分けます。</p>`;
+  } else if (!total){
+    h += `<p class="muted">今日、量を決めてやるタスクはありません。</p>`;
+  } else {
+    h += `<div class="tasks">`;
+    auto.forEach(x => {
+      const dn = (log[x.exam.id]||0) >= x.amount;
+      h += `<button type="button" class="task ${dn?"done":""}" data-auto="${x.exam.id}" data-amount="${x.amount}" style="--c:${x.exam.color}" aria-pressed="${dn}">
+        <span class="tab"></span><span class="box">${dn?"✓":""}</span>
+        <span class="tb"><span class="nm">${nameHtml(x.exam)}</span><span class="sb">試験まであと${daysToExam(x.exam)}日</span></span>
+        <span class="amt">${x.amount}<small>${esc(x.exam.unit)}</small></span></button>`;
+    });
+    manual.forEach(mt => {
+      h += `<button type="button" class="task ${mt.done?"done":""}" data-manual="${mt.id}" style="--c:var(--yellow)" aria-pressed="${mt.done}">
+        <span class="tab"></span><span class="box">${mt.done?"✓":""}</span>
+        <span class="tb"><span class="nm">${esc(mt.name)}<span class="mine">自分</span></span><span class="sb">自分で追加したタスク</span></span>
+        ${mt.amount ? `<span class="amt">${mt.amount}<small>${esc(mt.unit||"")}</small></span>` : ""}</button>`;
+    });
+    h += `</div><div class="pbar big"><i style="width:${Math.round(done/total*100)}%;--c:var(--mint)"></i></div>`;
+    if (done === total) h += `<div class="stamp-wrap"><div class="stamp">ALL CLEAR<small>今日の分 完了</small></div></div>`;
+  }
+  h += `<button type="button" class="add-mine" id="addMineBtn">＋ 自分でタスクを追加</button></div>`;
+  const rem = upcomingExams().filter(e => !(e.total > 0) && daysToExam(e) >= 1 && daysToExam(e) <= 14);
+  if (rem.length){
+    h += `<div><h3 class="blk-title">近づいている予定</h3><div class="tasks">${rem.map(e => {
+      const n = daysToExam(e);
+      return `<button type="button" class="remind ${n <= 3 ? "soon" : ""}" data-goto="${e.examDate}" style="--c:${e.color}">
+        <span class="tab"></span><span class="nm">${nameHtml(e)}<span class="sb">${fmtFull(e.examDate)}</span></span>
+        <span class="when">あと${n}日</span></button>`;
+    }).join("")}</div></div>`;
+  }
+  return h;
+}
+
+function renderPanel(){
+  const el = document.getElementById("panel");
+  const t = todayISO(), isToday = selected === t, d = parseISO(selected);
+  const rel = diffDays(selected, t);
+  const relLabel = isToday ? "今日" : rel > 0 ? `${rel}日後` : `${-rel}日前`;
+  const exsDay = state.exams.filter(e => e.examDate === selected);
+  let body = "";
+  if (isToday) body += todayBlock();
+  if (exsDay.length){
+    body += `<div><h3 class="blk-title">${isToday ? "今日の試験" : "この日の試験"}</h3><div class="xstack">${exsDay.map(xcardDetail).join("")}</div></div>`;
+  } else if (!isToday){
+    const nx = nextExamAfter(selected);
+    body += `<div class="nothing"><p>この日に試験はありません。</p>${nx ? `<p class="next">次の試験：<b>${fmtFull(nx.examDate)} ${esc(fullName(nx))}</b>（この日から${diffDays(nx.examDate, selected)}日後）</p>` : ""}</div>`;
+  }
+  el.innerHTML = `<div class="panel-head ${isToday?"is-today":""}">
+      <div class="pd">${d.getMonth()+1}月${d.getDate()}日<span class="pw">（${WD[d.getDay()]}）</span></div>
+      <div class="ph-r"><span class="badge">${relLabel}</span>${isToday ? "" : `<button type="button" class="mini" id="backToday">今日へ</button>`}</div>
+    </div>
+    <div class="panel-body">${body}</div>`;
+  el.querySelectorAll("[data-auto]").forEach(b => b.onclick = () => toggleAuto(b.dataset.auto, +b.dataset.amount));
+  el.querySelectorAll("[data-manual]").forEach(b => b.onclick = () => toggleManual(b.dataset.manual));
+  el.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openExamSheet(b.dataset.edit));
+  el.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => selectDate(b.dataset.goto));
+  const am = el.querySelector("#addMineBtn"); if (am) am.onclick = openMineSheet;
+  const bt = el.querySelector("#backToday"); if (bt) bt.onclick = () => selectDate(todayISO());
+}
+
+function toggleAuto(examId, amount){
+  const log = todaysLog(), e = state.exams.find(x => x.id === examId); if (!e) return;
+  if ((log[examId]||0) >= amount){ e.done = Math.max(0, e.done - (log[examId]||0)); log[examId] = 0; }
+  else { const add = Math.min(amount, e.total - e.done); e.done += add; log[examId] = add; }
+  render();
+}
+function toggleManual(mid){ const m = state.manual.find(x => x.id === mid); if (m){ m.done = !m.done; render(); } }
+
+// 一覧用：繰り返しの予定は、次の回1枚にまとめる
+function examListItems(){
+  const groups = {}, items = [];
+  state.exams.filter(passFilter).forEach(e => {
+    if (e.series && e.series.id) (groups[e.series.id] = groups[e.series.id] || []).push(e);
+    else items.push({ e, series:null });
+  });
+  Object.values(groups).forEach(g => {
+    g.sort(byDate);
+    const up = g.filter(x => daysToExam(x) >= 0);
+    const rep = up[0] || g[g.length - 1];
+    items.push({ e: rep, series: { days: rep.series.days || [], left: up.length, total: g.length } });
+  });
+  return items.sort((a,b) => byDate(a.e, b.e));
+}
+
+function renderExams(){
+  const tf = document.getElementById("typeFilter");
+  const present = [...new Set(state.exams.map(e => e.type || ""))];
+  if (typeFilter !== "all" && !present.includes(typeFilter)) typeFilter = "all";
+  if (present.some(p => p)){
+    const opts = [["all","すべて"], ...TYPES.filter(t => present.includes(t.k)).map(t => [t.k, t.k]),
+      ...present.filter(p => p && !TYPES.some(t => t.k === p)).map(p => [p, p]),
+      ...(present.includes("") ? [["", "種類なし"]] : [])];
+    tf.innerHTML = opts.map(([k,l]) => `<button type="button" data-f="${esc(k)}" class="${k===typeFilter?"sel":""}" aria-pressed="${k===typeFilter}">${esc(l)}</button>`).join("");
+    tf.hidden = false;
+    tf.querySelectorAll("button").forEach(b => b.onclick = () => { typeFilter = b.dataset.f; renderExams(); renderCalendar(); });
+  } else { tf.hidden = true; tf.innerHTML = ""; }
+  const list = document.getElementById("examList");
+  document.getElementById("examCount").textContent = state.exams.length ? `${state.exams.length}件` : "";
+  if (!state.exams.length){
+    list.className = "";
+    list.innerHTML = `<div class="empty">まだ試験がありません。<br>「＋ 試験を追加」か「告知から取り込み」で登録できます。</div>`;
+    return;
+  }
+  list.className = "xgrid";
+  list.innerHTML = examListItems().map(({ e, series }) => {
+    const n = daysToExam(e), remain = Math.max(0, e.total - e.done), pct = e.total ? Math.round(e.done / e.total * 100) : 0;
+    const label = n < 0 ? "終了" : n === 0 ? "本日" : `あと${n}日`, cls = n < 0 ? "" : n <= 3 ? "soon" : n <= 7 ? "mid" : "";
+    const right = !remain ? "完了" : n >= 0 ? `1日 約${todayAmount(e)}${esc(e.unit)}` : `残り${remain}${esc(e.unit)}`;
+    return `<article class="xcard ${justAdded.has(e.id)?"flash":""}" style="--c:${e.color}">
+      <div class="xh"><span class="nm">${nameHtml(e)}</span><span class="pill ${cls}">${label}</span></div>
+      <div class="xl">
+        <div class="meta">${series
+          ? `<span class="rep-tag">毎週${series.days.map(d => WD[d]).join("・")}</span> ${series.left ? `次回 ${fmtFull(e.examDate)}` : "すべて終了"}`
+          : `${fmtFull(e.examDate)}${e.reviewDays ? ` ・ 見直し${e.reviewDays}日` : ""}`}</div>
+        ${e.total > 0 ? `<div class="pbar"><i style="width:${pct}%"></i></div>
+        <div class="nums"><span>${e.done} / ${e.total} ${esc(e.unit)}</span><span>${right}</span></div>`
+        : `<div class="nums"><span>${series ? `残り${series.left}回 ／ 全${series.total}回` : "リマインドのみ（量なし）"}</span></div>`}
+        <div class="acts">
+          <button type="button" class="mini" data-goto="${e.examDate}">カレンダーで見る</button>
+          <button type="button" class="mini" data-edit="${e.id}">編集</button>
+          <button type="button" class="mini danger" data-del="${e.id}">削除</button>
+        </div>
+      </div></article>`;
+  }).join("");
+  list.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => { focusDate(b.dataset.goto); renderCalendar(); renderPanel(); scrollTo("cal"); });
+  list.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openExamSheet(b.dataset.edit));
+  list.querySelectorAll("[data-del]").forEach(b => b.onclick = () => delExam(b.dataset.del));
+}
+
+/* ---------- トースト・シート ---------- */
+let toastTimer;
+function toast(msg){ const el = document.getElementById("toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2800); }
+function openSheet(inner){
+  const root = document.getElementById("sheetRoot");
+  root.innerHTML = `<div class="sheet-bg"><div class="sheet" role="dialog" aria-modal="true">${inner}</div></div>`;
+  const close = () => { root.innerHTML = ""; };
+  root.querySelector(".sheet-bg").addEventListener("click", e => { if (e.target === e.currentTarget) close(); });
+  return { root, close };
+}
+
+function openExamSheet(editId){
+  const ex = editId ? state.exams.find(e => e.id === editId) : null;
+  const t = todayISO();
+  const def = ex || { subject:"", type:"", unit:"ページ", total:"", done:0, examDate: selected > t ? selected : "", reviewDays:0, color:PALETTE[state.exams.length % PALETTE.length] };
+  const { root, close } = openSheet(`<h3>${ex ? "試験を編集" : "試験を追加"}</h3>
+    ${ex && ex.series ? `<p class="note" style="margin-bottom:12px">繰り返しの予定のうち、この回（${fmtFull(ex.examDate)}）だけを変更します。</p>` : ""}
+    <div class="field"><label for="f-subject">科目名</label><input id="f-subject" type="text" value="${esc(def.subject)}" placeholder="例：数学、英語"></div>
+    <div class="field"><span class="flabel">種類（タップで選択・もう一度押すと解除）</span><div class="typepick" id="f-type">${TYPES.map(t => `<button type="button" data-t="${t.k}" class="${t.k===def.type?"sel":""}" aria-pressed="${t.k===def.type}">${t.k}</button>`).join("")}</div></div>
+    ${ex ? "" : `<div class="field"><span class="flabel">繰り返し</span><div class="seg" id="f-rep"><button type="button" data-r="none" class="sel">なし（1回だけ）</button><button type="button" data-r="weekly">毎週</button></div></div>`}
+    <div class="field"><label for="f-date" id="f-date-label">試験日</label><input id="f-date" type="date" value="${def.examDate}"></div>
+    ${ex ? "" : `<div id="rep-box" hidden>
+      <div class="field"><span class="flabel">曜日（複数選べます）</span><div class="wdpick" id="f-wd">${WD.split("").map((w,i) => `<button type="button" data-d="${i}" class="${i===0?"sun":i===6?"sat":""}" aria-pressed="false">${w}</button>`).join("")}</div></div>
+      <div class="field"><label for="f-until">いつまで</label><input id="f-until" type="date"></div>
+      <p class="hint" id="rep-count" style="margin:-4px 0 14px">曜日を選んでください</p>
+    </div>`}
+    <div class="row2">
+      <div class="field"><label for="f-total">範囲の量（任意）</label><input id="f-total" type="number" min="1" inputmode="numeric" value="${def.total ?? ""}" placeholder="空ならリマインドだけ"></div>
+      <div class="field"><label for="f-unit">単位</label><select id="f-unit">${UNITS.map(u => `<option ${u===def.unit?"selected":""}>${u}</option>`).join("")}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="f-done">終わった量</label><input id="f-done" type="number" min="0" inputmode="numeric" value="${def.done}"></div>
+      <div class="field"><label for="f-review">見直し日</label><input id="f-review" type="number" min="0" inputmode="numeric" value="${def.reviewDays}"></div>
+    </div>
+    <div class="field"><span class="flabel">色</span><div class="swatches" id="f-colors">${PALETTE.map((c,i) => `<button type="button" data-c="${c}" class="${c===def.color?"sel":""}" style="background:${c}" aria-label="色${i+1}"></button>`).join("")}</div></div>
+    <p class="hint">量を空にすると、試験日を知らせるリマインドだけになります。量を入れると毎日の量に分けて、見直し日のぶん手前までに終わるよう逆算します。</p>
+    <p class="err" id="f-err" hidden></p>
+    <div class="sheet-actions"><button type="button" class="btn" id="f-cancel">キャンセル</button><button type="button" class="btn primary" id="f-save">${ex ? "保存" : "追加"}</button></div>`);
+  const q = s => root.querySelector(s);
+  let chosen = def.color;
+  let chosenType = def.type || "";
+  root.querySelectorAll("#f-type button").forEach(b => b.onclick = () => {
+    chosenType = chosenType === b.dataset.t ? "" : b.dataset.t;
+    root.querySelectorAll("#f-type button").forEach(x => { x.classList.toggle("sel", x.dataset.t === chosenType); x.setAttribute("aria-pressed", x.dataset.t === chosenType); });
+  });
+  root.querySelectorAll("#f-colors button").forEach(b => b.onclick = () => { chosen = b.dataset.c; root.querySelectorAll("#f-colors button").forEach(x => x.classList.toggle("sel", x === b)); });
+
+  // 繰り返し（毎週）
+  let rep = "none"; const wdSel = new Set(); const repBox = q("#rep-box");
+  const plusDays = (iso, n) => { const d = parseISO(iso); d.setDate(d.getDate() + n); return isoOf(d); };
+  const repDates = () => {
+    const s = q("#f-date").value, u = q("#f-until").value;
+    if (!s || !u || u < s || !wdSel.size) return [];
+    const out = [];
+    for (let d = parseISO(s); isoOf(d) <= u && out.length < 120; d.setDate(d.getDate() + 1)) if (wdSel.has(d.getDay())) out.push(isoOf(d));
+    return out;
+  };
+  const updRep = () => {
+    if (!repBox) return;
+    const n = repDates().length;
+    q("#rep-count").textContent = !wdSel.size ? "曜日を選んでください" : n ? `${n}回分の予定を追加します` : "期間の中に、選んだ曜日がありません";
+  };
+  if (repBox){
+    root.querySelectorAll("#f-rep button").forEach(b => b.onclick = () => {
+      rep = b.dataset.r;
+      root.querySelectorAll("#f-rep button").forEach(x => x.classList.toggle("sel", x === b));
+      repBox.hidden = rep !== "weekly";
+      q("#f-date-label").textContent = rep === "weekly" ? "開始日" : "試験日";
+      if (rep === "weekly"){
+        if (!q("#f-date").value) q("#f-date").value = todayISO();
+        if (!q("#f-until").value) q("#f-until").value = plusDays(q("#f-date").value, 56);
+      }
+      updRep();
+    });
+    root.querySelectorAll("#f-wd button").forEach(b => b.onclick = () => {
+      const d = +b.dataset.d; wdSel.has(d) ? wdSel.delete(d) : wdSel.add(d);
+      b.classList.toggle("on", wdSel.has(d)); b.setAttribute("aria-pressed", wdSel.has(d)); updRep();
+    });
+    q("#f-date").addEventListener("change", updRep); q("#f-until").addEventListener("change", updRep);
+  }
+
+  q("#f-cancel").onclick = close;
+  q("#f-save").onclick = () => {
+    const subject = q("#f-subject").value.trim(), examDate = q("#f-date").value, total = parseInt(q("#f-total").value,10), unit = q("#f-unit").value;
+    const done = Math.max(0, parseInt(q("#f-done").value,10) || 0), reviewDays = Math.max(0, parseInt(q("#f-review").value,10) || 0);
+    const checks = [["#f-subject", !subject && !chosenType], ["#f-date", !examDate]];
+    checks.forEach(([s,b]) => q(s).classList.toggle("bad", b));
+    if (checks.some(c => c[1])){ const er = q("#f-err"); er.textContent = "科目名か種類のどちらかと、試験日を入れてください。"; er.hidden = false; return; }
+    const amt = total > 0 ? total : null, dn = amt ? Math.min(done, amt) : 0;
+    if (!ex && rep === "weekly"){
+      const dates = repDates();
+      if (!dates.length){
+        const er = q("#f-err");
+        er.textContent = !wdSel.size ? "曜日を選んでください。" : "「いつまで」を開始日より後にするか、期間に入る曜日を選んでください。";
+        er.hidden = false; return;
+      }
+      const series = { id: uid(), days: [...wdSel].sort((a,b) => a - b) };
+      const ids = dates.map(dt => {
+        const ne = { id:uid(), subject, examDate:dt, total:amt, unit, done:0, reviewDays, color:chosen, type:chosenType, series };
+        state.exams.push(ne); return ne.id;
+      });
+      close(); markAdded(ids); focusDate(dates[0]); render(); toast(`「${subject || chosenType}」を${ids.length}回分追加しました`);
+      return;
+    }
+    if (ex){
+      Object.assign(ex, { subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType });
+      close(); render(); toast("保存しました");
+    } else {
+      const ne = { id:uid(), subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType };
+      state.exams.push(ne); close(); markAdded([ne.id]); focusDate(examDate); render(); toast(`「${subject || chosenType}」を追加しました`);
+    }
+  };
+  setTimeout(() => q("#f-subject")?.focus(), 30);
+}
+
+function delExam(idv){
+  const ex = state.exams.find(e => e.id === idv); if (!ex) return;
+  const sid = ex.series && ex.series.id;
+  const cnt = sid ? state.exams.filter(e => e.series && e.series.id === sid).length : 0;
+  const { root, close } = openSheet(`<h3>削除しますか？</h3>
+    <p class="note">${sid ? `「${esc(fullName(ex))}」は毎週の繰り返し（全${cnt}回）です。どちらを削除しますか？元に戻せません。` : `「${esc(fullName(ex))}」（${fmtFull(ex.examDate)}）を削除します。元に戻せません。`}</p>
+    <div class="sheet-actions">${sid
+      ? `<button type="button" class="btn" id="d-one">${fmtMD(ex.examDate)} の回だけ</button><button type="button" class="btn danger" id="d-all">${cnt}回すべて</button>`
+      : `<button type="button" class="btn" id="d-cancel">やめる</button><button type="button" class="btn danger" id="d-ok">削除する</button>`}</div>`);
+  if (sid){
+    root.querySelector("#d-one").onclick = () => { state.exams = state.exams.filter(e => e.id !== idv); close(); render(); toast("この回を削除しました"); };
+    root.querySelector("#d-all").onclick = () => { state.exams = state.exams.filter(e => !(e.series && e.series.id === sid)); close(); render(); toast(`${cnt}回分を削除しました`); };
+  } else {
+    root.querySelector("#d-cancel").onclick = close;
+    root.querySelector("#d-ok").onclick = () => { state.exams = state.exams.filter(e => e.id !== idv); close(); render(); toast("削除しました"); };
+  }
+}
+
+function openMineSheet(){
+  const { root, close } = openSheet(`<h3>自分のタスクを追加</h3>
+    <div class="field"><label for="m-name">やること</label><input id="m-name" type="text" placeholder="例：英語の長文を1題、漢字プリント"></div>
+    <div class="row2">
+      <div class="field"><label for="m-amount">量（なくてもOK）</label><input id="m-amount" type="number" min="1" inputmode="numeric"></div>
+      <div class="field"><label for="m-unit">単位</label><input id="m-unit" type="text" placeholder="題・枚など"></div>
+    </div>
+    <p class="hint">今日の「やること」に追加されます。自動の量とは別に、自由に決められます。</p>
+    <div class="sheet-actions"><button type="button" class="btn" id="m-cancel">キャンセル</button><button type="button" class="btn primary" id="m-save">追加</button></div>`);
+  root.querySelector("#m-cancel").onclick = close;
+  root.querySelector("#m-save").onclick = () => {
+    const n = root.querySelector("#m-name"), name = n.value.trim();
+    if (!name){ n.classList.add("bad"); return; }
+    const a = parseInt(root.querySelector("#m-amount").value,10);
+    state.manual.push({ id:uid(), name, amount: a > 0 ? a : null, unit: root.querySelector("#m-unit").value.trim(), date: todayISO(), done:false });
+    close(); focusDate(todayISO()); render(); toast("タスクを追加しました");
+  };
+  setTimeout(() => root.querySelector("#m-name")?.focus(), 30);
+}
+
+function openSettings(){
+  const s = state.settings;
+  const { root, close } = openSheet(`<h3>設定</h3>
+    <div class="toggle-row"><div><div class="t-label">通知</div><div class="t-desc">毎朝、その日の量をお知らせ（公開版で有効）</div></div>
+      <label class="switch"><input type="checkbox" id="s-notify" ${s.notify?"checked":""} aria-label="通知"><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="t-label">1日の上限</div><div class="t-desc">量が多すぎる日に、自動分の合計をこの量までに抑えます</div></div>
+      <label class="switch"><input type="checkbox" id="s-capon" ${s.capOn?"checked":""} aria-label="1日の上限"><span class="slider"></span></label></div>
+    <div class="field" id="capField" ${s.capOn?"":"hidden"}><label for="s-cap">上限（自動分の合計）</label><input id="s-cap" type="number" min="1" inputmode="numeric" value="${s.cap}"></div>
+    <p class="note">データはこの端末のブラウザにだけ保存されます。通知の配信は、公開版（サーバーに載せる段階）で使えるようになります。</p>
+    <div class="sheet-actions"><button type="button" class="btn" id="s-reset">データを消してサンプルに戻す</button><button type="button" class="btn primary" id="s-done">完了</button></div>`);
+  root.querySelector("#s-capon").onchange = e => root.querySelector("#capField").hidden = !e.target.checked;
+  root.querySelector("#s-done").onclick = () => {
+    s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
+    const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
+    close(); render(); toast("設定を保存しました");
+  };
+  root.querySelector("#s-reset").onclick = () => { state = seed(); focusDate(todayISO()); close(); render(); toast("サンプルに戻しました"); };
+}
+
+/* ---------- 告知から取り込み ---------- */
+function normalize(s){
+  return s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/／/g, "/").replace(/[～~]/g, "〜").replace(/[ｐＰP]/g, "p").replace(/　/g, " ").replace(/\r/g, "");
+}
+function guessUnit(s){
+  if (/ページ|頁|p\.?\s*\d/.test(s)) return "ページ";
+  if (/単語|ターゲット|シス単|鉄壁|速単|LEAP|No\.|番/.test(s)) return "項目";
+  if (/単元/.test(s)) return "単元";
+  if (/章/.test(s)) return "章";
+  if (/問/.test(s)) return "問";
+  if (/枚|プリント/.test(s)) return "枚";
+  return "ページ";
+}
+function guessType(s){
+  if (/早朝/.test(s)) return "早朝試験";
+  if (/授業内/.test(s)) return "授業内試験";
+  if (/チェック/.test(s)) return "チェックテスト";
+  if (/小テスト|確認テスト|漢字テスト|単語テスト/.test(s)) return "小テスト";
+  if (/定期|中間|期末|考査/.test(s)) return "定期テスト";
+  if (/宿題|課題|提出/.test(s)) return "宿題・課題";
+  return "";
+}
+function parseAnnouncements(text){
+  const t0 = parseISO(todayISO()), rows = [], skipped = [], seen = {};
+  normalize(text).split("\n").forEach(raw => {
+    const line = raw.trim(); if (!line) return;
+    let mo, da, rest;
+    const m1 = line.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    const m2 = m1 ? null : line.match(/(^|[^\d])(\d{1,2})\s*\/\s*(\d{1,2})(?!\d)/);
+    if (m1){ mo = +m1[1]; da = +m1[2]; rest = line.replace(m1[0], " "); }
+    else if (m2){ mo = +m2[2]; da = +m2[3]; rest = line.replace(m2[0], m2[1] + " "); }
+    if (!mo || mo > 12 || !da || da > 31){ skipped.push(line); return; }
+    rest = rest.replace(/[（(][日月火水木金土祝・\s]+[)）]/g, " ");
+    let yr = t0.getFullYear(); if (new Date(yr, mo-1, da) < t0) yr++;
+    const iso = `${yr}-${pad(mo)}-${pad(da)}`;
+    const subj = SUBJECTS.find(s => rest.includes(s));
+    const ty = guessType(rest);
+    const subject = subj || (ty ? "" : rest.replace(/[\s:：、,]+/g, " ").trim().slice(0,16));
+    const key = subject + "|" + ty + "|" + iso; if (seen[key]) return; seen[key] = 1;
+    let total = "", r;
+    if ((r = rest.match(/(\d+)\s*[〜\-ー－―–]\s*p?\.?\s*(\d+)/))){ const a = +r[1], b = +r[2]; if (b >= a) total = b - a + 1; }
+    else if ((r = rest.match(/(\d+)\s*(?:ページ|頁|枚|問|章|単元|回)/))){ total = +r[1]; }
+    rows.push({ subject, type: ty, known: !!subj || !!ty, date: iso, total, unit: guessUnit(rest), raw: line });
+  });
+  return { rows, skipped };
+}
+const skippedHtml = sk => sk.length ? `<details class="skipped"><summary>日付が見つからなかった行（${sk.length}）</summary><ul>${sk.map(s => `<li>${esc(s)}</li>`).join("")}</ul></details>` : "";
+
+function openImportSheet(){
+  const { root, close } = openSheet(`<h3>告知から取り込み</h3>
+    <p class="note">学年サイドのテスト告知をコピーして、下に貼り付けてください。<b>日付</b>と<b>科目</b>を読み取って、試験の下書きを作ります。</p>
+    <div class="field" style="margin-top:12px"><label for="imp-text">告知の文章</label>
+      <textarea class="imp-area" id="imp-text" placeholder="例）&#10;11月20日(木) 数学Ⅰ 教科書 p.40〜72&#10;11/22 英単語 ターゲット 201〜400&#10;12月3日 理科 小テスト プリント"></textarea></div>
+    <div class="sheet-actions" style="margin-top:0"><button type="button" class="btn" id="imp-cancel">閉じる</button><button type="button" class="btn primary" id="imp-parse">読み取る</button></div>
+    <div id="imp-result"></div>`);
+  const q = s => root.querySelector(s);
+  q("#imp-cancel").onclick = close;
+  q("#imp-parse").onclick = () => {
+    const { rows, skipped } = parseAnnouncements(q("#imp-text").value);
+    const out = q("#imp-result");
+    if (!rows.length){
+      out.innerHTML = `<p class="err">日付が見つかりませんでした。「11月20日」や「11/20」のような日付が入った行を読み取ります。</p>${skippedHtml(skipped)}`;
+      return;
+    }
+    out.innerHTML = `<div class="imp-sum"><span class="ok">✓ ${rows.length}件 読み取りました</span>${skipped.length ? `<span class="hint" style="margin:0">日付のない行 ${skipped.length}件は除外</span>` : ""}</div>
+      ${rows.map((x,i) => `<div class="imp-row" id="row${i}">
+        <input type="checkbox" id="chk${i}" ${x.known?"checked":""} aria-label="この試験を追加する">
+        <div class="imp-fields">
+          <input class="s" id="s${i}" value="${esc(x.subject)}" placeholder="科目名" aria-label="科目名">
+          <input id="d${i}" type="date" value="${x.date}" aria-label="試験日">
+          <div class="q"><input id="t${i}" type="number" min="1" inputmode="numeric" value="${x.total}" placeholder="量" aria-label="範囲の量"><select id="u${i}" aria-label="単位">${UNITS.map(u => `<option ${u===x.unit?"selected":""}>${u}</option>`).join("")}</select></div>
+          ${!x.known ? `<span class="imp-warn">科目名が分かりませんでした。直してから左のチェックを入れてください</span>` : x.total === "" ? `<span class="imp-info">量なし → リマインドとして追加（量を入れると毎日の量に分けます）</span>` : ""}
+          <select class="y" id="y${i}" aria-label="種類"><option value="">種類なし</option>${TYPES.map(t => `<option ${t.k===x.type?"selected":""}>${t.k}</option>`).join("")}</select>
+          <span class="imp-raw">元の文：${esc(x.raw)}</span>
+        </div></div>`).join("")}
+      ${skippedHtml(skipped)}
+      <p class="err" id="imp-err" hidden></p>
+      <div class="sheet-actions"><button type="button" class="btn primary" id="imp-add"></button></div>`;
+    const sync = () => {
+      const n = rows.filter((_,i) => q("#chk"+i).checked).length, b = q("#imp-add");
+      b.textContent = n ? `選んだ${n}件を追加` : "追加する試験にチェックを入れてください"; b.disabled = !n;
+      rows.forEach((_,i) => q("#row"+i).classList.toggle("off", !q("#chk"+i).checked));
+    };
+    rows.forEach((_,i) => q("#chk"+i).onchange = sync); sync();
+    q("#imp-add").onclick = () => {
+      const picked = []; let ok = true;
+      rows.forEach((_,i) => {
+        if (!q("#chk"+i).checked) return;
+        const subject = q("#s"+i).value.trim(), date = q("#d"+i).value, total = parseInt(q("#t"+i).value,10), unit = q("#u"+i).value;
+        const ty = q("#y"+i).value;
+        q("#s"+i).classList.toggle("bad", !subject && !ty); q("#d"+i).classList.toggle("bad", !date);
+        if ((!subject && !ty) || !date){ ok = false; return; }
+        picked.push({ subject, date, total, unit, type: ty });
+      });
+      if (!ok){ const er = q("#imp-err"); er.textContent = "科目名か種類のどちらかと、日付を入れてください。"; er.hidden = false; return; }
+      const ids = picked.map(p => { const e = { id:uid(), subject:p.subject, type:p.type, examDate:p.date, total: p.total > 0 ? p.total : null, unit:p.unit, done:0, reviewDays:0, color:PALETTE[state.exams.length % PALETTE.length] }; state.exams.push(e); return e.id; });
+      close(); markAdded(ids); focusDate(picked.map(p => p.date).sort()[0]); render();
+      toast(`✓ ${ids.length}件の試験を追加しました`); scrollTo("cal");
+    };
+  };
+  setTimeout(() => q("#imp-text")?.focus(), 30);
+}
+
+/* ---------- 起動 ---------- */
+document.getElementById("addBtn").onclick = () => openExamSheet();
+document.getElementById("settingsBtn").onclick = openSettings;
+document.getElementById("importBtn").onclick = openImportSheet;
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("sheetRoot").innerHTML = ""; });
+render();
+
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+</script>
+</body>
+</html>
