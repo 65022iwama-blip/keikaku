@@ -283,6 +283,18 @@ details.skipped li{overflow-wrap:anywhere}
 .tfilter{margin:0 2px 12px}
 .tfilter button.sel{background:var(--cyan);border-color:var(--cyan);color:var(--on-neon);box-shadow:0 0 12px rgba(0,229,255,.4)}
 
+.tt{display:flex;flex-direction:column;gap:6px}
+.tt-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:7px 10px;border:1px solid var(--rule);border-radius:4px;background:var(--card-2)}
+.tt-row.has{border-color:var(--magenta);background:rgba(255,43,214,.07);box-shadow:0 0 14px rgba(255,43,214,.2)}
+.tt-p{flex:none;width:3.4em;font-family:"Chakra Petch",var(--font-ui);font-weight:700;font-size:.8rem;color:var(--cyan)}
+.tt-s{flex:1;min-width:0;font-weight:700;font-size:.9rem}
+.tt-s.tt-none{color:var(--ink-soft);font-weight:400}
+.tt-x{font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:2px;background:var(--c);color:var(--on-neon);box-shadow:0 0 10px color-mix(in srgb,var(--c) 45%,transparent)}
+.tt-edit{display:flex;flex-direction:column;gap:6px;margin:12px 0 4px}
+.tt-line{display:flex;align-items:center;gap:10px}
+.tt-line input{flex:1;min-width:0;padding:9px 11px;font:inherit;font-size:1rem;border:1px solid var(--rule);border-radius:4px;background:var(--field);color:var(--ink)}
+.tt-line input:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 14px rgba(0,229,255,.25)}
+.chip i{font-style:normal;font-weight:700;margin-right:2px}
 .welcome{display:flex;flex-direction:column;gap:12px}
 .w-lead{margin:0;font-weight:700}
 .w-steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:.84rem;color:var(--ink-soft)}
@@ -338,6 +350,23 @@ const TYPES = [
   { k:"早朝試験", s:"早朝" }, { k:"授業内試験", s:"授業内" }, { k:"チェックテスト", s:"チェック" },
   { k:"小テスト", s:"小テ" }, { k:"定期テスト", s:"定期" }, { k:"宿題・課題", s:"宿題" },
 ];
+// 時間割の時限：0 が早朝、1〜6 が1〜6時間目
+const PERIODS = [
+  { k:"早朝", label:"早朝", short:"早" }, { k:"1", label:"1限", short:"①" }, { k:"2", label:"2限", short:"②" },
+  { k:"3", label:"3限", short:"③" }, { k:"4", label:"4限", short:"④" }, { k:"5", label:"5限", short:"⑤" }, { k:"6", label:"6限", short:"⑥" },
+];
+const periodIdx = k => PERIODS.findIndex(p => p.k === k);
+const periodLabel = k => k === "早朝" ? "早朝" : k ? `${k}時間目` : "";
+const periodShort = k => (PERIODS.find(p => p.k === k) || {}).short || "";
+const periodLabelShort = k => (PERIODS.find(p => p.k === k) || {}).label || "";
+// 時間割から、その日・その科目の時限を探す（早朝試験は早朝）
+function guessPeriod(iso, subject, type){
+  if (type === "早朝試験") return "早朝";
+  if (!iso || !subject || !state.timetable) return "";
+  const row = state.timetable[parseISO(iso).getDay()] || [];
+  const i = row.findIndex(x => x && (x === subject || x.includes(subject) || subject.includes(x)));
+  return i >= 0 ? PERIODS[i].k : "";
+}
 const SUBJECTS = ["英語コミュニケーション","論理表現","言語文化","論理国語","文学国語","現代文","古文","漢文","国語",
   "数学Ⅰ","数学Ⅱ","数学Ⅲ","数学A","数学B","数学C","数学",
   "英単語","英文法","英語表現","コミュ英","リスニング","英語",
@@ -357,7 +386,7 @@ const fmtFull = iso => { const d = parseISO(iso); return `${d.getMonth()+1}月${
 const typeShort = t => (TYPES.find(x => x.k === t) || {}).s || t || "";
 const fullName = e => e.subject && e.type ? `${e.subject}（${e.type}）` : (e.subject || e.type || "");
 const nameHtml = e => e.subject ? `${e.type ? `<span class="ttag">${esc(typeShort(e.type))}</span>` : ""}${esc(e.subject)}` : esc(e.type || "");
-const chipLabel = e => e.subject ? `${e.type ? `<b>${esc(typeShort(e.type))}</b>` : ""}${esc(e.subject)}` : esc(e.type || "");
+const chipLabel = e => (e.period ? `<i>${periodShort(e.period)}</i>` : "") + (e.subject ? `${e.type ? `<b>${esc(typeShort(e.type))}</b>` : ""}${esc(e.subject)}` : esc(e.type || ""));
 const uid = () => Math.random().toString(36).slice(2,9);
 const reduceMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scrollTo = id => document.getElementById(id).scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
@@ -426,7 +455,7 @@ function renderBoard(){
     const n = daysToExam(e);
     const left = n === 0 ? `<span class="num">本日</span>` : `あと<span class="num">${pad(n)}</span>日`;
     return `<div class="brow ${i===0?"main":""} ${i===0 && n<=3?"hot":""}" style="--led:${ledColor(n)}">
-      <span class="sub">${esc(fullName(e))}</span><span class="dt">${fmtMD(e.examDate)}</span><span class="left">${left}</span></div>`;
+      <span class="sub">${esc(fullName(e))}</span><span class="dt">${fmtMD(e.examDate)}${e.period ? " " + periodLabelShort(e.period) : ""}</span><span class="left">${left}</span></div>`;
   }).join("") : `<div class="brow main" style="--led:var(--led-amber)"><span class="sub">次の試験はまだありません</span><span class="dt">「＋ 試験を追加」から登録</span><span class="left"></span></div>`;
   document.getElementById("board").innerHTML = `<div class="board-head"><span>NEXT EXAM</span><span>DATE</span><span>COUNTDOWN</span></div>${rows}`;
 }
@@ -444,7 +473,8 @@ function renderCalendar(){
   for (let d = 1; d <= dim; d++){
     const iso = `${y}-${pad(m+1)}-${pad(d)}`;
     const wd = (startWd + d - 1) % 7;
-    const exs = (byDay[iso] || []).slice().sort((a,b) => fullName(a).localeCompare(fullName(b), "ja"));
+    const pOrd = e => e.period ? periodIdx(e.period) : 99;
+    const exs = (byDay[iso] || []).slice().sort((a,b) => pOrd(a) - pOrd(b) || fullName(a).localeCompare(fullName(b), "ja"));
     const cls = ["cell", wd===0?"sun":"", wd===6?"sat":"", iso===t?"today":"", iso<t?"past":"", iso===selected?"sel":""].join(" ");
     const chips = exs.map(e => `<span class="chip ${justAdded.has(e.id)?"pop":""}" style="--c:${e.color}">${chipLabel(e)}</span>`).join("");
     const label = `${m+1}月${d}日` + (exs.length ? `、試験：${exs.map(fullName).join("、")}` : "");
@@ -482,6 +512,7 @@ function xcardDetail(e){
   return `<div class="xcard" style="--c:${e.color}">
     <div class="xh"><span class="nm">${nameHtml(e)}</span><span class="pill ${cls}">${pill}</span></div>
     ${e.total > 0 ? `<dl class="xb">
+      ${e.period ? `<dt>時間</dt><dd>${periodLabel(e.period)}</dd>` : ""}
       <dt>範囲</dt><dd>${e.total} ${esc(e.unit)}</dd>
       <dt>進み</dt><dd>${e.done} / ${e.total}（${pct}%）</dd>
       <dt>残り</dt><dd>${remain ? `${remain} ${esc(e.unit)}` : "完了"}</dd>
@@ -490,7 +521,7 @@ function xcardDetail(e){
     </dl>
     <div class="xp"><div class="pbar"><i style="width:${pct}%"></i></div>
       <div class="acts" style="margin-top:10px"><button type="button" class="mini" data-edit="${e.id}">編集</button></div></div>`
-    : `<dl class="xb"><dt>種類</dt><dd>リマインドのみ（量なし）</dd></dl>
+    : `<dl class="xb">${e.period ? `<dt>時間</dt><dd>${periodLabel(e.period)}</dd>` : ""}<dt>種類</dt><dd>リマインドのみ（量なし）</dd></dl>
     <div class="xp"><div class="acts"><button type="button" class="mini" data-edit="${e.id}">量を設定・編集</button></div></div>`}
   </div>`;
 }
@@ -519,7 +550,7 @@ function todayBlock(){
       const dn = (log[x.exam.id]||0) >= x.amount;
       h += `<button type="button" class="task ${dn?"done":""}" data-auto="${x.exam.id}" data-amount="${x.amount}" style="--c:${x.exam.color}" aria-pressed="${dn}">
         <span class="tab"></span><span class="box">${dn?"✓":""}</span>
-        <span class="tb"><span class="nm">${nameHtml(x.exam)}</span><span class="sb">試験まであと${daysToExam(x.exam)}日</span></span>
+        <span class="tb"><span class="nm">${nameHtml(x.exam)}</span><span class="sb">試験まであと${daysToExam(x.exam)}日${x.exam.period ? " ・ " + periodLabel(x.exam.period) : ""}</span></span>
         <span class="amt">${x.amount}<small>${esc(x.exam.unit)}</small></span></button>`;
     });
     manual.forEach(mt => {
@@ -537,11 +568,24 @@ function todayBlock(){
     h += `<div><h3 class="blk-title">近づいている予定</h3><div class="tasks">${rem.map(e => {
       const n = daysToExam(e);
       return `<button type="button" class="remind ${n <= 3 ? "soon" : ""}" data-goto="${e.examDate}" style="--c:${e.color}">
-        <span class="tab"></span><span class="nm">${nameHtml(e)}<span class="sb">${fmtFull(e.examDate)}</span></span>
+        <span class="tab"></span><span class="nm">${nameHtml(e)}<span class="sb">${fmtFull(e.examDate)}${e.period ? " ・ " + periodLabel(e.period) : ""}</span></span>
         <span class="when">あと${n}日</span></button>`;
     }).join("")}</div></div>`;
   }
   return h;
+}
+
+// その日の時間割（時間割が未登録で、時限つきの試験もなければ何も出さない）
+function timetableBlock(iso, exsDay){
+  const row = (state.timetable || {})[parseISO(iso).getDay()] || [];
+  const timed = exsDay.filter(e => e.period);
+  if (!row.some(x => x) && !timed.length) return "";
+  const lines = PERIODS.map((p, i) => {
+    const subj = row[i] || "", xs = timed.filter(e => e.period === p.k);
+    if (!subj && !xs.length && (i === 0 || !row.some(x => x))) return "";
+    return `<div class="tt-row ${xs.length ? "has" : ""}"><span class="tt-p">${p.label}</span><span class="tt-s ${subj ? "" : "tt-none"}">${subj ? esc(subj) : "―"}</span>${xs.map(e => `<span class="tt-x" style="--c:${e.color}">${esc(e.type || "テスト")}${e.subject && e.subject !== subj ? "：" + esc(e.subject) : ""}</span>`).join("")}</div>`;
+  }).join("");
+  return `<div><h3 class="blk-title">時間割</h3><div class="tt">${lines}</div></div>`;
 }
 
 function renderPanel(){
@@ -552,6 +596,7 @@ function renderPanel(){
   const exsDay = state.exams.filter(e => e.examDate === selected);
   let body = "";
   if (isToday) body += todayBlock();
+  body += timetableBlock(selected, exsDay);
   if (exsDay.length){
     body += `<div><h3 class="blk-title">${isToday ? "今日の試験" : "この日の試験"}</h3><div class="xstack">${exsDay.map(xcardDetail).join("")}</div></div>`;
   } else if (!isToday){
@@ -625,8 +670,8 @@ function renderExams(){
       <div class="xh"><span class="nm">${nameHtml(e)}</span><span class="pill ${cls}">${label}</span></div>
       <div class="xl">
         <div class="meta">${series
-          ? `<span class="rep-tag">毎週${series.days.map(d => WD[d]).join("・")}</span> ${series.left ? `次回 ${fmtFull(e.examDate)}` : "すべて終了"}`
-          : `${fmtFull(e.examDate)}${e.reviewDays ? ` ・ 見直し${e.reviewDays}日` : ""}`}</div>
+          ? `<span class="rep-tag">毎週${series.days.map(d => WD[d]).join("・")}</span> ${series.left ? `次回 ${fmtFull(e.examDate)}${e.period ? " ・ " + periodLabel(e.period) : ""}` : "すべて終了"}`
+          : `${fmtFull(e.examDate)}${e.period ? ` ・ ${periodLabel(e.period)}` : ""}${e.reviewDays ? ` ・ 見直し${e.reviewDays}日` : ""}`}</div>
         ${e.total > 0 ? `<div class="pbar"><i style="width:${pct}%"></i></div>
         <div class="nums"><span>${e.done} / ${e.total} ${esc(e.unit)}</span><span>${right}</span></div>`
         : `<div class="nums"><span>${series ? `残り${series.left}回 ／ 全${series.total}回` : "リマインドのみ（量なし）"}</span></div>`}
@@ -663,6 +708,8 @@ function openExamSheet(editId){
     <div class="field"><span class="flabel">種類（タップで選択・もう一度押すと解除）</span><div class="typepick" id="f-type">${TYPES.map(t => `<button type="button" data-t="${t.k}" class="${t.k===def.type?"sel":""}" aria-pressed="${t.k===def.type}">${t.k}</button>`).join("")}</div></div>
     ${ex ? "" : `<div class="field"><span class="flabel">繰り返し</span><div class="seg" id="f-rep"><button type="button" data-r="none" class="sel">なし（1回だけ）</button><button type="button" data-r="weekly">毎週</button></div></div>`}
     <div class="field"><label for="f-date" id="f-date-label">試験日</label><input id="f-date" type="date" value="${def.examDate}"></div>
+    <div class="field"><span class="flabel">何時間目（任意）</span><div class="typepick" id="f-period"><button type="button" data-p="" class="${def.period ? "" : "sel"}">指定なし</button>${PERIODS.map(p => `<button type="button" data-p="${p.k}" class="${p.k === def.period ? "sel" : ""}">${p.label}</button>`).join("")}</div>
+      <p class="hint" id="f-period-hint">${state.timetable && Object.values(state.timetable).some(r => r.some(x => x)) ? "時間割から自動で選びます" : "設定で時間割を登録すると、自動で選ばれます"}</p></div>
     ${ex ? "" : `<div id="rep-box" hidden>
       <div class="field"><span class="flabel">曜日（複数選べます）</span><div class="wdpick" id="f-wd">${WD.split("").map((w,i) => `<button type="button" data-d="${i}" class="${i===0?"sun":i===6?"sat":""}" aria-pressed="false">${w}</button>`).join("")}</div></div>
       <div class="field"><label for="f-until">いつまで</label><input id="f-until" type="date"></div>
@@ -683,8 +730,18 @@ function openExamSheet(editId){
   const q = s => root.querySelector(s);
   let chosen = def.color;
   let chosenType = def.type || "";
+  let chosenPeriod = def.period || "", periodTouched = !!(ex && ex.period);
+  const setPeriod = p => { chosenPeriod = p; root.querySelectorAll("#f-period button").forEach(x => x.classList.toggle("sel", x.dataset.p === p)); };
+  const autoPeriod = () => {
+    if (periodTouched) return;
+    const p = guessPeriod(q("#f-date").value, q("#f-subject").value.trim(), chosenType);
+    setPeriod(p);
+    if (p) q("#f-period-hint").textContent = chosenType === "早朝試験" ? "早朝試験なので「早朝」にしました" : `時間割から「${periodLabel(p)}」を選びました`;
+  };
+  root.querySelectorAll("#f-period button").forEach(b => b.onclick = () => { periodTouched = true; setPeriod(b.dataset.p); });
+  q("#f-date").addEventListener("change", autoPeriod); q("#f-subject").addEventListener("input", autoPeriod);
   root.querySelectorAll("#f-type button").forEach(b => b.onclick = () => {
-    chosenType = chosenType === b.dataset.t ? "" : b.dataset.t;
+    chosenType = chosenType === b.dataset.t ? "" : b.dataset.t; autoPeriod();
     root.querySelectorAll("#f-type button").forEach(x => { x.classList.toggle("sel", x.dataset.t === chosenType); x.setAttribute("aria-pressed", x.dataset.t === chosenType); });
   });
   root.querySelectorAll("#f-colors button").forEach(b => b.onclick = () => { chosen = b.dataset.c; root.querySelectorAll("#f-colors button").forEach(x => x.classList.toggle("sel", x === b)); });
@@ -740,17 +797,18 @@ function openExamSheet(editId){
       }
       const series = { id: uid(), days: [...wdSel].sort((a,b) => a - b) };
       const ids = dates.map(dt => {
-        const ne = { id:uid(), subject, examDate:dt, total:amt, unit, done:0, reviewDays, color:chosen, type:chosenType, series };
+        const ne = { id:uid(), subject, examDate:dt, total:amt, unit, done:0, reviewDays, color:chosen, type:chosenType, series,
+          period: periodTouched ? chosenPeriod : guessPeriod(dt, subject, chosenType) };
         state.exams.push(ne); return ne.id;
       });
       close(); markAdded(ids); focusDate(dates[0]); render(); toast(`「${subject || chosenType}」を${ids.length}回分追加しました`);
       return;
     }
     if (ex){
-      Object.assign(ex, { subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType });
+      Object.assign(ex, { subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType, period:chosenPeriod });
       close(); render(); toast("保存しました");
     } else {
-      const ne = { id:uid(), subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType };
+      const ne = { id:uid(), subject, examDate, total:amt, unit, done:dn, reviewDays, color:chosen, type:chosenType, period:chosenPeriod };
       state.exams.push(ne); close(); markAdded([ne.id]); focusDate(examDate); render(); toast(`「${subject || chosenType}」を追加しました`);
     }
   };
@@ -803,9 +861,16 @@ function openSettings(){
     <div class="toggle-row"><div><div class="t-label">1日の上限</div><div class="t-desc">量が多すぎる日に、自動分の合計をこの量までに抑えます</div></div>
       <label class="switch"><input type="checkbox" id="s-capon" ${s.capOn?"checked":""} aria-label="1日の上限"><span class="slider"></span></label></div>
     <div class="field" id="capField" ${s.capOn?"":"hidden"}><label for="s-cap">上限（自動分の合計）</label><input id="s-cap" type="number" min="1" inputmode="numeric" value="${s.cap}"></div>
+    <div class="toggle-row"><div><div class="t-label">時間割</div><div class="t-desc">何時間目にテストがあるかを表示（使わなくてもOK）</div></div>
+      <button type="button" class="mini" id="s-tt">${state.timetable && Object.values(state.timetable).some(r => r.some(x => x)) ? "編集" : "登録する"}</button></div>
     <p class="note">データはこのスマホ（ブラウザ）の中にだけ保存され、ほかの人には見えません。通知は準備中です。</p>
     <div class="sheet-actions"><button type="button" class="btn" id="s-reset">すべてのデータを消す</button><button type="button" class="btn primary" id="s-done">完了</button></div>`);
   root.querySelector("#s-capon").onchange = e => root.querySelector("#capField").hidden = !e.target.checked;
+  root.querySelector("#s-tt").onclick = () => {
+    s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
+    const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
+    saveState(); openTimetableSheet();
+  };
   root.querySelector("#s-done").onclick = () => {
     s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
     const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
@@ -816,6 +881,35 @@ function openSettings(){
     if (!armed){ armed = true; rs.textContent = "もう一度押すと全部消えます"; rs.classList.add("danger"); return; }
     state = seed(); focusDate(todayISO()); close(); render(); toast("すべてのデータを消しました");
   };
+}
+
+/* ---------- 時間割 ---------- */
+function openTimetableSheet(){
+  state.timetable = state.timetable || {};
+  let day = new Date().getDay(); if (day < 1 || day > 6) day = 1;
+  const subjects = [...new Set([...state.exams.map(e => e.subject).filter(Boolean), ...SUBJECTS])];
+  const { root, close } = openSheet(`<h3>時間割</h3>
+    <p class="hint" style="margin:0 0 12px">登録すると、試験を追加したときに何時間目かを自動で選び、日付を押したときにその日の時間割が出ます。使わなくても大丈夫です。</p>
+    <div class="seg" id="tt-days">${[1,2,3,4,5,6].map(d => `<button type="button" data-d="${d}" class="${d === day ? "sel" : ""}">${WD[d]}</button>`).join("")}</div>
+    <div class="tt-edit" id="tt-rows"></div>
+    <datalist id="tt-subjects">${subjects.map(x => `<option value="${esc(x)}">`).join("")}</datalist>
+    <div class="sheet-actions"><button type="button" class="btn" id="tt-copy">前の曜日と同じにする</button><button type="button" class="btn primary" id="tt-done">完了</button></div>`);
+  const draw = () => {
+    const row = state.timetable[day] || [];
+    root.querySelector("#tt-copy").disabled = day === 1;
+    root.querySelector("#tt-rows").innerHTML = PERIODS.map((p, i) => `<label class="tt-line"><span class="tt-p">${p.label}</span><input type="text" list="tt-subjects" data-i="${i}" value="${esc(row[i] || "")}" placeholder="${i === 0 ? "なければ空のまま" : "科目"}" aria-label="${WD[day]}曜 ${p.label}"></label>`).join("");
+    root.querySelectorAll("#tt-rows input").forEach(inp => inp.oninput = () => {
+      const r = state.timetable[day] = state.timetable[day] || PERIODS.map(() => "");
+      r[+inp.dataset.i] = inp.value.trim(); saveState();
+    });
+  };
+  root.querySelectorAll("#tt-days button").forEach(b => b.onclick = () => {
+    day = +b.dataset.d; root.querySelectorAll("#tt-days button").forEach(x => x.classList.toggle("sel", x === b)); draw();
+  });
+  root.querySelector("#tt-copy").onclick = () => { state.timetable[day] = (state.timetable[day - 1] || PERIODS.map(() => "")).slice(); saveState(); draw(); };
+  root.querySelector(".sheet-bg").addEventListener("click", e => { if (e.target === e.currentTarget) render(); });
+  root.querySelector("#tt-done").onclick = () => { close(); render(); toast("時間割を保存しました"); };
+  draw();
 }
 
 /* ---------- 告知から取り込み ---------- */
@@ -861,7 +955,9 @@ function parseAnnouncements(text){
     let total = "", r;
     if ((r = rest.match(/(\d+)\s*[〜\-ー－―–]\s*p?\.?\s*(\d+)/))){ const a = +r[1], b = +r[2]; if (b >= a) total = b - a + 1; }
     else if ((r = rest.match(/(\d+)\s*(?:ページ|頁|枚|問|章|単元|回)/))){ total = +r[1]; }
-    rows.push({ subject, type: ty, known: !!subj || !!ty, date: iso, total, unit: guessUnit(rest), raw: line });
+    const pm = rest.match(/([1-6])\s*(?:限|時間目|時限)/);
+    const period = /早朝/.test(rest) ? "早朝" : pm ? pm[1] : guessPeriod(iso, subject, ty);
+    rows.push({ subject, type: ty, known: !!subj || !!ty, date: iso, total, unit: guessUnit(rest), period, raw: line });
   });
   return { rows, skipped };
 }
@@ -891,6 +987,7 @@ function openImportSheet(){
           <input id="d${i}" type="date" value="${x.date}" aria-label="試験日">
           <div class="q"><input id="t${i}" type="number" min="1" inputmode="numeric" value="${x.total}" placeholder="量" aria-label="範囲の量"><select id="u${i}" aria-label="単位">${UNITS.map(u => `<option ${u===x.unit?"selected":""}>${u}</option>`).join("")}</select></div>
           ${!x.known ? `<span class="imp-warn">科目名が分かりませんでした。直してから左のチェックを入れてください</span>` : x.total === "" ? `<span class="imp-info">量なし → リマインドとして追加（量を入れると毎日の量に分けます）</span>` : ""}
+          <select class="y" id="p${i}" aria-label="何時間目"><option value="">時間の指定なし</option>${PERIODS.map(p => `<option value="${p.k}" ${p.k===x.period?"selected":""}>${p.label}</option>`).join("")}</select>
           <select class="y" id="y${i}" aria-label="種類"><option value="">種類なし</option>${TYPES.map(t => `<option ${t.k===x.type?"selected":""}>${t.k}</option>`).join("")}</select>
           <span class="imp-raw">元の文：${esc(x.raw)}</span>
         </div></div>`).join("")}
@@ -911,10 +1008,10 @@ function openImportSheet(){
         const ty = q("#y"+i).value;
         q("#s"+i).classList.toggle("bad", !subject && !ty); q("#d"+i).classList.toggle("bad", !date);
         if ((!subject && !ty) || !date){ ok = false; return; }
-        picked.push({ subject, date, total, unit, type: ty });
+        picked.push({ subject, date, total, unit, type: ty, period: q("#p"+i).value });
       });
       if (!ok){ const er = q("#imp-err"); er.textContent = "科目名か種類のどちらかと、日付を入れてください。"; er.hidden = false; return; }
-      const ids = picked.map(p => { const e = { id:uid(), subject:p.subject, type:p.type, examDate:p.date, total: p.total > 0 ? p.total : null, unit:p.unit, done:0, reviewDays:0, color:PALETTE[state.exams.length % PALETTE.length] }; state.exams.push(e); return e.id; });
+      const ids = picked.map(p => { const e = { id:uid(), subject:p.subject, type:p.type, period:p.period, examDate:p.date, total: p.total > 0 ? p.total : null, unit:p.unit, done:0, reviewDays:0, color:PALETTE[state.exams.length % PALETTE.length] }; state.exams.push(e); return e.id; });
       close(); markAdded(ids); focusDate(picked.map(p => p.date).sort()[0]); render();
       toast(`✓ ${ids.length}件の試験を追加しました`); scrollTo("cal");
     };
