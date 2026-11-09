@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>計画</title>
+<title>CHRONOS</title>
 <meta name="description" content="試験日と範囲から、今日やる量を逆算する勉強手帳">
 <meta name="theme-color" content="#070A12">
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="計画">
+<meta name="apple-mobile-web-app-title" content="CHRONOS">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=M+PLUS+1+Code:wght@400;500;700&display=swap">
 <style>
@@ -65,7 +65,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .icon-btn{appearance:none;width:42px;height:42px;border:1px solid var(--line);background:rgba(0,229,255,.05);color:var(--cyan);border-radius:3px;font-size:1.1rem;cursor:pointer;display:grid;place-items:center}
 .chip-btn:hover,.icon-btn:hover,.nav-btn:hover,.mini:hover{background:var(--hover);border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.25)}
 .chip-btn:active,.icon-btn:active,.nav-btn:active,.btn:active,.fab:active,.mini:active{filter:brightness(1.25)}
-@media (max-width:519px){.logo-sub{display:none}.chip-btn{padding:7px 10px;font-size:.76rem}}
+@media (max-width:519px){.logo-sub{display:none}.logo-text{font-size:1.15rem;letter-spacing:.08em}.chip-btn{padding:7px 10px;font-size:.76rem}}
 
 /* グリッド */
 .grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr);grid-template-areas:"board" "panel" "cal" "list"}
@@ -312,8 +312,8 @@ details.skipped li{overflow-wrap:anywhere}
 <div class="wrap">
   <header class="top">
     <div class="logo">
-      <span class="logo-mark">K</span>
-      <div><span class="logo-text">計画</span><span class="logo-sub">EXAM COUNTDOWN SYSTEM</span></div>
+      <span class="logo-mark">C</span>
+      <div><span class="logo-text">CHRONOS</span><span class="logo-sub">EXAM COUNTDOWN SYSTEM</span></div>
     </div>
     <div class="top-r">
       <button type="button" class="chip-btn" id="importBtn">告知から取り込み</button>

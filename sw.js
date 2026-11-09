@@ -1,5 +1,5 @@
-// 計画 Service Worker：アプリ本体をキャッシュして、オフラインでも開けるようにする
-const CACHE = "keikaku-v1";
+// CHRONOS Service Worker：アプリ本体をキャッシュして、オフラインでも開けるようにする
+const CACHE = "chronos-v1";
 const FONT_CACHE = "keikaku-fonts";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
