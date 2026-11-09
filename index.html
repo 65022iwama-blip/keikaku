@@ -283,6 +283,16 @@ details.skipped li{overflow-wrap:anywhere}
 .tfilter{margin:0 2px 12px}
 .tfilter button.sel{background:var(--cyan);border-color:var(--cyan);color:var(--on-neon);box-shadow:0 0 12px rgba(0,229,255,.4)}
 
+.welcome{display:flex;flex-direction:column;gap:12px}
+.w-lead{margin:0;font-weight:700}
+.w-steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:.84rem;color:var(--ink-soft)}
+.w-steps b{color:var(--cyan)}
+.w-acts{display:flex;gap:8px;flex-wrap:wrap}
+.w-acts .btn{flex:1 1 140px}
+.welcome .hint{margin:0}
+.install{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 14px;border:1px solid var(--magenta);border-radius:6px;background:rgba(255,43,214,.07);box-shadow:0 0 18px rgba(255,43,214,.18)}
+.install .it-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:.84rem}
+.install .it-body span{color:var(--ink-soft);font-size:.78rem}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -298,6 +308,7 @@ details.skipped li{overflow-wrap:anywhere}
       <button type="button" class="icon-btn" id="settingsBtn" aria-label="設定">⚙</button>
     </div>
   </header>
+  <div class="install" id="installTip" hidden></div>
 
   <main class="grid">
     <section class="board" id="board" aria-label="次の試験"></section>
@@ -355,13 +366,7 @@ const scrollTo = id => document.getElementById(id).scrollIntoView({ behavior: re
 function loadState(){ try { const r = localStorage.getItem(STORE_KEY); if (r) return JSON.parse(r); } catch(e){} return null; }
 function saveState(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
 function seed(){
-  const plus = n => { const x = new Date(); x.setDate(x.getDate()+n); return isoOf(x); };
-  return { settings:{ notify:true, capOn:false, cap:30 }, log:{}, manual:[], exams:[
-    { id:uid(), subject:"数学Ⅰ", unit:"ページ", total:40, done:12, examDate:plus(9), reviewDays:2, color:PALETTE[4] },
-    { id:uid(), subject:"英単語", unit:"項目", total:300, done:120, examDate:plus(5), reviewDays:1, color:PALETTE[5] },
-    { id:uid(), subject:"理科", type:"小テスト", unit:"ページ", total:8, done:0, examDate:plus(2), reviewDays:0, color:PALETTE[0] },
-    { id:uid(), subject:"国語", type:"チェックテスト", unit:"ページ", total:null, done:0, examDate:plus(4), reviewDays:0, color:PALETTE[1] },
-  ]};
+  return { settings:{ notify:true, capOn:false, cap:30 }, log:{}, manual:[], exams:[], sampleCleaned:true };
 }
 let state = loadState() || seed();
 state.settings = state.settings || { notify:true, capOn:false, cap:30 };
@@ -372,6 +377,20 @@ state.exams.forEach((e,i) => {
   if (k >= 0) e.color = PALETTE[k];
   if (!e.color) e.color = PALETTE[i % PALETTE.length];
 });
+
+// 以前の版で自動で入っていたサンプルの試験を、一度だけ取り除く（自分で登録した試験は残す）
+if (!state.sampleCleaned){
+  const SAMPLE = [ // 科目, 量, 単位, 種類, 色の番号, 見直し日
+    ["数学Ⅰ", 40, "ページ", "", 4, 2], ["英単語", 300, "項目", "", 5, 1],
+    ["理科", 8, "ページ", "小テスト", 0, 0], ["国語", null, "ページ", "チェックテスト", 1, 0] ];
+  const isSample = e => !e.series && SAMPLE.some(([sub, tot, unit, type, ci, rv]) =>
+    e.subject === sub && (e.total ?? null) === tot && e.unit === unit && (e.type || "") === type && e.color === PALETTE[ci] && (e.reviewDays || 0) === rv);
+  const removed = state.exams.filter(isSample).map(e => e.id);
+  state.exams = state.exams.filter(e => !isSample(e));
+  Object.values(state.log).forEach(day => removed.forEach(id => delete day[id]));
+  state.sampleCleaned = true;
+  saveState();
+}
 
 let selected = todayISO();
 let typeFilter = "all";
@@ -482,7 +501,16 @@ function todayBlock(){
   const done = auto.filter(x => (log[x.exam.id]||0) >= x.amount).length + manual.filter(m => m.done).length;
   let h = `<div><div class="blk-row"><h3 class="blk-title">今日やること</h3>${total ? `<span class="cnt">${done} / ${total}</span>` : ""}</div>`;
   if (!state.exams.length && !manual.length){
-    h += `<p class="muted">試験や宿題を登録すると、ここに出ます。量を入れたものは、今日やる量に自動で分けます。</p>`;
+    h += `<div class="welcome">
+      <p class="w-lead">ようこそ。試験を登録すると、今日やる量を自動で出します。</p>
+      <ol class="w-steps">
+        <li><b>試験を追加</b>：科目・種類・日付を入れる。量は入れなくてもOK（そのときは予定のお知らせだけ）</li>
+        <li><b>今日やること</b>：量を入れた試験は、毎日の量に自動で分けてここに出る</li>
+        <li><b>チェック</b>：終わったら押す。やれなかった分は次の日以降に自動で回る</li>
+      </ol>
+      <div class="w-acts"><button type="button" class="btn primary" id="w-add">＋ 試験を追加</button><button type="button" class="btn" id="w-imp">告知から取り込み</button></div>
+      <p class="hint">データはこのスマホの中にだけ保存されます。ほかの人には見えません。</p>
+    </div>`;
   } else if (!total){
     h += `<p class="muted">今日、量を決めてやるタスクはありません。</p>`;
   } else {
@@ -540,6 +568,8 @@ function renderPanel(){
   el.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openExamSheet(b.dataset.edit));
   el.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => selectDate(b.dataset.goto));
   const am = el.querySelector("#addMineBtn"); if (am) am.onclick = openMineSheet;
+  const wa = el.querySelector("#w-add"); if (wa) wa.onclick = () => openExamSheet();
+  const wi = el.querySelector("#w-imp"); if (wi) wi.onclick = openImportSheet;
   const bt = el.querySelector("#backToday"); if (bt) bt.onclick = () => selectDate(todayISO());
 }
 
@@ -768,20 +798,24 @@ function openMineSheet(){
 function openSettings(){
   const s = state.settings;
   const { root, close } = openSheet(`<h3>設定</h3>
-    <div class="toggle-row"><div><div class="t-label">通知</div><div class="t-desc">毎朝、その日の量をお知らせ（公開版で有効）</div></div>
+    <div class="toggle-row"><div><div class="t-label">通知</div><div class="t-desc">毎朝、その日の量をお知らせ（準備中）</div></div>
       <label class="switch"><input type="checkbox" id="s-notify" ${s.notify?"checked":""} aria-label="通知"><span class="slider"></span></label></div>
     <div class="toggle-row"><div><div class="t-label">1日の上限</div><div class="t-desc">量が多すぎる日に、自動分の合計をこの量までに抑えます</div></div>
       <label class="switch"><input type="checkbox" id="s-capon" ${s.capOn?"checked":""} aria-label="1日の上限"><span class="slider"></span></label></div>
     <div class="field" id="capField" ${s.capOn?"":"hidden"}><label for="s-cap">上限（自動分の合計）</label><input id="s-cap" type="number" min="1" inputmode="numeric" value="${s.cap}"></div>
-    <p class="note">データはこの端末のブラウザにだけ保存されます。通知の配信は、公開版（サーバーに載せる段階）で使えるようになります。</p>
-    <div class="sheet-actions"><button type="button" class="btn" id="s-reset">データを消してサンプルに戻す</button><button type="button" class="btn primary" id="s-done">完了</button></div>`);
+    <p class="note">データはこのスマホ（ブラウザ）の中にだけ保存され、ほかの人には見えません。通知は準備中です。</p>
+    <div class="sheet-actions"><button type="button" class="btn" id="s-reset">すべてのデータを消す</button><button type="button" class="btn primary" id="s-done">完了</button></div>`);
   root.querySelector("#s-capon").onchange = e => root.querySelector("#capField").hidden = !e.target.checked;
   root.querySelector("#s-done").onclick = () => {
     s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
     const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
     close(); render(); toast("設定を保存しました");
   };
-  root.querySelector("#s-reset").onclick = () => { state = seed(); focusDate(todayISO()); close(); render(); toast("サンプルに戻しました"); };
+  const rs = root.querySelector("#s-reset"); let armed = false;
+  rs.onclick = () => {
+    if (!armed){ armed = true; rs.textContent = "もう一度押すと全部消えます"; rs.classList.add("danger"); return; }
+    state = seed(); focusDate(todayISO()); close(); render(); toast("すべてのデータを消しました");
+  };
 }
 
 /* ---------- 告知から取り込み ---------- */
@@ -893,6 +927,17 @@ document.getElementById("addBtn").onclick = () => openExamSheet();
 document.getElementById("settingsBtn").onclick = openSettings;
 document.getElementById("importBtn").onclick = openImportSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("sheetRoot").innerHTML = ""; });
+(function installTip(){
+  const ua = navigator.userAgent;
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  let closed = false; try { closed = localStorage.getItem("keikaku.installTipClosed") === "1"; } catch(e){}
+  if (standalone || closed || !/iPhone|iPad|iPod|Android/.test(ua)) return;
+  const ios = /iPhone|iPad|iPod/.test(ua);
+  const el = document.getElementById("installTip");
+  el.innerHTML = `<div class="it-body"><b>ホーム画面に追加すると、アプリとして使えます</b><span>${ios ? "Safari の共有ボタン（□↑）→「ホーム画面に追加」" : "Chrome のメニュー（︙）→「アプリをインストール」"}</span></div><button type="button" class="mini" id="it-close">閉じる</button>`;
+  el.hidden = false;
+  el.querySelector("#it-close").onclick = () => { el.hidden = true; try { localStorage.setItem("keikaku.installTipClosed", "1"); } catch(e){} };
+})();
 render();
 
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
