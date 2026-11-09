@@ -883,6 +883,66 @@ function openSettings(){
   };
 }
 
+/* ---------- 時間割の読み込み ---------- */
+function parseTimetable(text){
+  const days = {}, skipped = [];
+  const WDNUM = { "日":0, "月":1, "火":2, "水":3, "木":4, "金":5, "土":6, "MON":1, "TUE":2, "WED":3, "THU":4, "FRI":5, "SAT":6, "SUN":0 };
+  normalize(text).split("\n").forEach(raw => {
+    const line = raw.trim(); if (!line) return;
+    const m = line.match(/^([日月火水木金土]|MON|TUE|WED|THU|FRI|SAT|SUN)\s*(?:曜\s*日?)?\s*[:：,，]?\s*(.*)$/i);
+    if (!m){ skipped.push(line); return; }
+    const day = WDNUM[m[1].toUpperCase()];
+    if (day === 0){ skipped.push(line); return; } // 日曜は時間割なし
+    const rest = m[2].trim();
+    if (!rest){ skipped.push(line); return; }
+    const row = PERIODS.map(() => "");
+    let cursor = 1, any = false;
+    rest.split(/[\s,、，・\/]+/).filter(Boolean).forEach(tok => {
+      let pm;
+      if (/^(早朝|朝)$/.test(tok)){ cursor = 0; return; }
+      if (/^0(?:限)?$/.test(tok)){ cursor = 0; return; }
+      if ((pm = tok.match(/^([1-6])(?:限|時間目|時限)?$/))){ cursor = +pm[1]; return; }
+      if ((pm = tok.match(/^早朝(.+)$/))){ row[0] = pm[1]; any = true; cursor = 1; return; }
+      if ((pm = tok.match(/^([1-6])(?:限|時間目|時限)(.+)$/))){ row[+pm[1]] = pm[2]; any = true; cursor = +pm[1] + 1; return; }
+      if (cursor > 6) return; // 7コマ目以降は入れない
+      row[cursor] = tok; any = true; cursor++;
+    });
+    if (!any){ skipped.push(line); return; }
+    days[day] = row;
+  });
+  return { days, skipped };
+}
+
+function openTimetableImportSheet(){
+  const { root, close } = openSheet(`<h3>時間割を読み込む</h3>
+    <p class="note">1行に1曜日ずつ、科目を順番に書いてください。月〜土までまとめて入れられます。すでに入っている曜日は上書きします。</p>
+    <div class="field" style="margin-top:12px"><label for="tt-text">時間割の文章</label>
+      <textarea class="imp-area" id="tt-text" placeholder="例）&#10;月 国語 数学 英語 理科 社会 体育&#10;火 数学 英語 国語 社会 理科 音楽&#10;水 早朝 国語 数学 英語 理科 社会 体育"></textarea></div>
+    <div class="sheet-actions" style="margin-top:0"><button type="button" class="btn" id="tt-back">戻る</button><button type="button" class="btn primary" id="tt-parse">読み取る</button></div>
+    <div id="tt-result"></div>`);
+  const q = s => root.querySelector(s);
+  q("#tt-back").onclick = () => openTimetableSheet();
+  q("#tt-parse").onclick = () => {
+    const { days, skipped } = parseTimetable(q("#tt-text").value);
+    const out = q("#tt-result");
+    const list = Object.keys(days).map(Number).sort((a, b) => a - b);
+    if (!list.length){
+      out.innerHTML = `<p class="err">曜日が見つかりませんでした。行の先頭に「月」「火」などの曜日を入れてください。</p>${skippedHtml(skipped)}`;
+      return;
+    }
+    out.innerHTML = `<div class="imp-sum"><span class="ok">✓ ${list.length}曜日分 読み取りました</span>${skipped.length ? `<span class="hint" style="margin:0">読めなかった行 ${skipped.length}件は除外</span>` : ""}</div>
+      ${list.map(d => `<div class="imp-row"><div class="imp-fields"><b>${WD[d]}曜</b><span>${PERIODS.map((p, i) => days[d][i] ? `${p.label} ${esc(days[d][i])}` : "").filter(Boolean).join(" / ") || "（空）"}</span></div></div>`).join("")}
+      ${skippedHtml(skipped)}
+      <div class="sheet-actions"><button type="button" class="btn primary" id="tt-add">この内容で登録</button></div>`;
+    q("#tt-add").onclick = () => {
+      state.timetable = state.timetable || {};
+      list.forEach(d => { state.timetable[d] = days[d].slice(); });
+      saveState(); close(); render(); toast(`✓ 時間割を${list.length}曜日分 登録しました`);
+    };
+  };
+  setTimeout(() => q("#tt-text")?.focus(), 30);
+}
+
 /* ---------- 時間割 ---------- */
 function openTimetableSheet(){
   state.timetable = state.timetable || {};
@@ -893,7 +953,7 @@ function openTimetableSheet(){
     <div class="seg" id="tt-days">${[1,2,3,4,5,6].map(d => `<button type="button" data-d="${d}" class="${d === day ? "sel" : ""}">${WD[d]}</button>`).join("")}</div>
     <div class="tt-edit" id="tt-rows"></div>
     <datalist id="tt-subjects">${subjects.map(x => `<option value="${esc(x)}">`).join("")}</datalist>
-    <div class="sheet-actions"><button type="button" class="btn" id="tt-copy">前の曜日と同じにする</button><button type="button" class="btn primary" id="tt-done">完了</button></div>`);
+    <div class="sheet-actions"><button type="button" class="btn" id="tt-import">読み込み</button><button type="button" class="btn" id="tt-copy">前の曜日と同じにする</button><button type="button" class="btn primary" id="tt-done">完了</button></div>`);
   const draw = () => {
     const row = state.timetable[day] || [];
     root.querySelector("#tt-copy").disabled = day === 1;
@@ -906,6 +966,7 @@ function openTimetableSheet(){
   root.querySelectorAll("#tt-days button").forEach(b => b.onclick = () => {
     day = +b.dataset.d; root.querySelectorAll("#tt-days button").forEach(x => x.classList.toggle("sel", x === b)); draw();
   });
+  root.querySelector("#tt-import").onclick = () => openTimetableImportSheet();
   root.querySelector("#tt-copy").onclick = () => { state.timetable[day] = (state.timetable[day - 1] || PERIODS.map(() => "")).slice(); saveState(); draw(); };
   root.querySelector(".sheet-bg").addEventListener("click", e => { if (e.target === e.currentTarget) render(); });
   root.querySelector("#tt-done").onclick = () => { close(); render(); toast("時間割を保存しました"); };
