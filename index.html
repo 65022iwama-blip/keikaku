@@ -863,6 +863,9 @@ function openSettings(){
     <div class="field" id="capField" ${s.capOn?"":"hidden"}><label for="s-cap">上限（自動分の合計）</label><input id="s-cap" type="number" min="1" inputmode="numeric" value="${s.cap}"></div>
     <div class="toggle-row"><div><div class="t-label">時間割</div><div class="t-desc">何時間目にテストがあるかを表示（使わなくてもOK）</div></div>
       <button type="button" class="mini" id="s-tt">${state.timetable && Object.values(state.timetable).some(r => r.some(x => x)) ? "編集" : "登録する"}</button></div>
+    <div class="toggle-row"><div><div class="t-label">データの書き出し／読み込み</div><div class="t-desc">試験・時間割・記録をファイルに保存／復元します。ホーム画面の追加し直しの前にどうぞ</div></div>
+      <div><button type="button" class="mini" id="s-export">書き出し</button> <button type="button" class="mini" id="s-import">読み込み</button></div></div>
+    <input type="file" id="s-import-file" accept=".json,application/json" hidden>
     <p class="note">データはこのスマホ（ブラウザ）の中にだけ保存され、ほかの人には見えません。通知は準備中です。</p>
     <div class="sheet-actions"><button type="button" class="btn" id="s-reset">すべてのデータを消す</button><button type="button" class="btn primary" id="s-done">完了</button></div>`);
   root.querySelector("#s-capon").onchange = e => root.querySelector("#capField").hidden = !e.target.checked;
@@ -871,6 +874,14 @@ function openSettings(){
     const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
     saveState(); openTimetableSheet();
   };
+  root.querySelector("#s-export").onclick = () => {
+    s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
+    const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
+    saveState(); downloadBackup();
+  };
+  const importFile = root.querySelector("#s-import-file");
+  root.querySelector("#s-import").onclick = () => importFile.click();
+  importFile.onchange = () => { const f = importFile.files && importFile.files[0]; importFile.value = ""; if (f) importBackupFile(f); };
   root.querySelector("#s-done").onclick = () => {
     s.notify = root.querySelector("#s-notify").checked; s.capOn = root.querySelector("#s-capon").checked;
     const c = parseInt(root.querySelector("#s-cap").value,10); if (c > 0) s.cap = c;
@@ -881,6 +892,58 @@ function openSettings(){
     if (!armed){ armed = true; rs.textContent = "もう一度押すと全部消えます"; rs.classList.add("danger"); return; }
     state = seed(); focusDate(todayISO()); close(); render(); toast("すべてのデータを消しました");
   };
+}
+
+/* ---------- データの書き出し／読み込み ---------- */
+function buildBackup(){
+  return { app:"CHRONOS", format:"chronos-backup", version:1, exportedAt:new Date().toISOString(), state };
+}
+function downloadBackup(){
+  const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `chronos-backup-${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(`書き出しファイルを保存しました（試験${state.exams.length}件）`);
+}
+function parseBackup(text){
+  let o;
+  try { o = JSON.parse(text); } catch(e){ return { ok:false, error:"JSONとして読めませんでした" }; }
+  const st = o && o.state ? o.state : o;
+  if (!st || typeof st !== "object" || Array.isArray(st)) return { ok:false, error:"CHRONOSのバックアップとして読めませんでした" };
+  if (st.exams !== undefined && !Array.isArray(st.exams)) return { ok:false, error:"試験のデータが壊れています" };
+  if (st.manual !== undefined && !Array.isArray(st.manual)) return { ok:false, error:"タスクのデータが壊れています" };
+  if (st.log !== undefined && (typeof st.log !== "object" || Array.isArray(st.log))) return { ok:false, error:"記録のデータが壊れています" };
+  if (st.settings !== undefined && (typeof st.settings !== "object" || Array.isArray(st.settings))) return { ok:false, error:"設定のデータが壊れています" };
+  if (st.timetable !== undefined && (typeof st.timetable !== "object" || Array.isArray(st.timetable))) return { ok:false, error:"時間割のデータが壊れています" };
+  return { ok:true, state:st };
+}
+function normalizeImportedState(st){
+  const n = Object.assign(seed(), st);
+  n.settings = Object.assign({ notify:true, capOn:false, cap:30 }, st.settings || {});
+  n.log = st.log || {}; n.manual = st.manual || []; n.exams = st.exams || [];
+  if (st.timetable) n.timetable = st.timetable;
+  return n;
+}
+function importBackupFile(file){
+  const r = new FileReader();
+  r.onload = () => {
+    const res = parseBackup(String(r.result || ""));
+    if (!res.ok){ toast(res.error); return; }
+    const n = normalizeImportedState(res.state);
+    const ttDays = Object.keys(n.timetable || {}).filter(d => (n.timetable[d] || []).some(x => x)).length;
+    const logDays = Object.keys(n.log || {}).length;
+    const { root, close } = openSheet(`<h3>読み込みますか？</h3>
+    <p class="note">今のデータは上書きされます。試験${n.exams.length}件・時間割${ttDays}曜日・記録${logDays}日分が入ります。読み込む前に、今のデータの「書き出し」もおすすめします。</p>
+    <div class="sheet-actions"><button type="button" class="btn" id="bk-cancel">やめる</button><button type="button" class="btn primary" id="bk-ok">読み込んで上書き</button></div>`);
+    root.querySelector("#bk-cancel").onclick = () => close();
+    root.querySelector("#bk-ok").onclick = () => {
+      state = n; saveState(); focusDate(todayISO()); close(); render(); toast("読み込みました");
+    };
+  };
+  r.onerror = () => toast("ファイルを読めませんでした");
+  r.readAsText(file);
 }
 
 /* ---------- 時間割の読み込み ---------- */
